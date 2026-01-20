@@ -1,0 +1,30 @@
+# Python-specific ignores
+__pycache__/
+*.py[cod]  # Byte-compiled / optimized files
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments (if you use them)
+venv/
+env/
+*.env  # Environment variable files (for secrets)
+
+# Tkinter/GUI temp files (if any)
+*.log  # Any log files you might generate
+*.tmp
+
+# OS-generated files
+.DS_Store  # Mac OS
+Thumbs.db  # Windows
+desktop.ini
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp  # Vim swap files
+
+# Misc project-specific (add your own here)
+# e.g., test_data.csv
+# or backups: *.bak
+``*
