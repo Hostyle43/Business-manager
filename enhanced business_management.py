@@ -37,19 +37,8 @@ class BusinessManager:
             json.dump(data, f, indent=4)
         print("Data saved successfully.")
 
-# Example: Add to_dict and from_dict methods to your classes (if not already)
-class Employee:
-    # ... existing attributes/methods ...
-    def to_dict(self):
-        return {'name': self.name, 'role': self.role, 'availability': self.availability}  # Add your fields
 
-    @classmethod
-    def from_dict(cls, data):
-        return cls(data['name'], data['role'], data['availability'])  # Match constructor
-
-# Repeat for Equipment and Project classes
-
-# Existing classes (assuming from before; adjust as needed)
+# Existing classes (will add classes as needed)
 class Employee:
     def __init__(self, name, role, hourly_rate):
         self.name = name
@@ -57,17 +46,62 @@ class Employee:
         self.hourly_rate = hourly_rate
         self.hours_worked = 0
 
+    def to_dict(self):
+        # Converts the Employee object to a dict for JSON saving.
+        # Include every attribute you want persisted—matches what you save in BusinessManager.
+        return {
+            'name': self.name,  # String, saves fine
+            'role': self.role,  # String
+            'availability': self.availability  # Dict of dates to booleans—JSON handles dicts naturally
+        }
     def __str__(self):
         return f"Employee: {self.name} ({self.role}), Rate: ${self.hourly_rate}/hr"
 
+
+    from datetime import datetime  # If not already imported
 class Project:
-    def __init__(self, name, description):
+    def __init__(self, name, estimated_hours, start_date):
         self.name = name
-        self.description = description
-        self.employees = []
-        self.equipment = []  # New: Link equipment to projects later
-        self.expenses = 0.0
-        self.status = "Estimate"
+        self.estimated_hours = estimated_hours
+        self.start_date = datetime.strptime(start_date, '%Y-%m-%d')  # e.g., '2026-01-25'
+        self.progress = 0  # 0-100%
+        self.schedule = {}  # e.g., {'2026-01-25': {'tasks': '...', 'assigned_employees': [...]}}
+        # Assume access to manager.employees for availability
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'estimated_hours': self.estimated_hours,  # Number (int/float)
+            'start_date': self.start_date.strftime('%Y-%m-%d') if isinstance(self.start_date, datetime) else self.start_date,  # Convert datetime to string for JSON
+            'progress': self.progress,  # Number (0-100)
+            'schedule': self.schedule  # Dict—saves the entire semi-automated schedule
+        }
+
+    def update_progress(self, new_progress):
+        self.progress = new_progress
+        # Trigger schedule update if needed
+
+    def generate_schedule(self, manager):
+        """Semi-automated schedule generation."""
+        schedule = {}
+        remaining_hours = self.estimated_hours * (1 - self.progress / 100)
+        predicted_end = self.start_date + timedelta(hours=remaining_hours)  # Basic prediction
+
+        # Pull employee availability (assume Employee has 'availability' as dict {date: bool})
+        available_employees = [e for e in manager.employees if any(avail for date, avail in e.availability.items() if avail)]
+
+        # Simple automation: Assign to first 7 days, suggest employees
+        current_date = self.start_date
+        for day in range(7):  # Basic: Schedule first week
+            date_str = current_date.strftime('%Y-%m-%d')
+            assigned = [e.name for e in available_employees[:2]]  # Assign top 2 available
+            schedule[date_str] = {
+                'tasks': f'Day {day+1} tasks (estimated {remaining_hours / 7:.2f} hours)',
+                'assigned_employees': assigned
+            }
+            current_date += timedelta(days=1)
+
+        self.schedule = schedule
+        return schedule  # For GUI display
 
     def add_employee(self, employee):
         self.employees.append(employee)
@@ -86,6 +120,15 @@ class Equipment:
         self.travel_speed = travel_speed  # in mph or km/h
         self.bucket_volume = bucket_volume  # in cubic yards/meters
         self.hourly_cost = hourly_cost  # for expense tracking
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'travel_speed': self.travel_speed,  # Number
+            'hourly_cost': self.hourly_cost    # Number
+            # Add more if you have them, e.g., 'bucket_volume': self.bucket_volume
+        }
+
 
     def __str__(self):
         return (f"Equipment: {self.name} ({self.type}), Speed: {self.travel_speed} mph, "
