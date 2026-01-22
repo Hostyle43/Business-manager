@@ -4,6 +4,50 @@
 import tkinter as tk
 from tkinter import messagebox, ttk  # ttk for better widgets like dropdowns
 import sys
+import json  # For JSON persistence
+import os    # For file checks
+
+class BusinessManager:
+    def __init__(self, data_file='app_data.json'):
+        self.data_file = data_file
+        self.employees = []  # List of Employee objects
+        self.equipment = []  # List of Equipment objects
+        self.projects = []   # List of Project objects
+        self.load_data()     # Load on init
+
+    def load_data(self):
+        if os.path.exists(self.data_file):
+            with open(self.data_file, 'r') as f:
+                data = json.load(f)
+                # Assuming you have from_dict methods in your classes
+                self.employees = [Employee.from_dict(e) for e in data.get('employees', [])]
+                self.equipment = [Equipment.from_dict(eq) for eq in data.get('equipment', [])]
+                self.projects = [Project.from_dict(p) for p in data.get('projects', [])]
+            print("Data loaded successfully.")
+        else:
+            print("No data file found; starting fresh.")
+
+    def save_data(self):
+        data = {
+            'employees': [e.to_dict() for e in self.employees],
+            'equipment': [eq.to_dict() for eq in self.equipment],
+            'projects': [p.to_dict() for p in self.projects]
+        }
+        with open(self.data_file, 'w') as f:
+            json.dump(data, f, indent=4)
+        print("Data saved successfully.")
+
+# Example: Add to_dict and from_dict methods to your classes (if not already)
+class Employee:
+    # ... existing attributes/methods ...
+    def to_dict(self):
+        return {'name': self.name, 'role': self.role, 'availability': self.availability}  # Add your fields
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data['name'], data['role'], data['availability'])  # Match constructor
+
+# Repeat for Equipment and Project classes
 
 # Existing classes (assuming from before; adjust as needed)
 class Employee:
