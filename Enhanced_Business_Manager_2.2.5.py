@@ -588,7 +588,7 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
 
     clear_content(content_frame)
     nav_history.append(lambda: excavating_estimator_gui(manager, content_frame, nav_history))
-import math
+
     # GUI Layout: Scrollable canvas for many fields
     canvas = tk.Canvas(content_frame)
     scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
@@ -936,6 +936,7 @@ canvas.configure(scrollregion=canvas.bbox("all"))  # Re-set scrollregion
 
 
 # Updated auto-fill function
+import math
 def update_auto_fields(*args):
     try:
         # Example 1: Auto-fill perimeter_drain_length = total footing lengths + 10%
