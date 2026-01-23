@@ -584,8 +584,33 @@ import tkinter as tk
 from tkinter import messagebox
 
 def excavating_estimator_gui(manager, content_frame, nav_history):
-    clear_content(content_frame)  # Clear existing content
+    # Inside def excavating_estimator_gui(manager, content_frame, nav_history):
+
+    clear_content(content_frame)
     nav_history.append(lambda: excavating_estimator_gui(manager, content_frame, nav_history))
+
+    # GUI Layout: Scrollable canvas for many fields
+    canvas = tk.Canvas(content_frame)
+    scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+    scroll_frame = tk.Frame(canvas)
+    scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    # NEW: Add mouse wheel support here (right after canvas config)
+    def on_mouse_wheel(event):
+        try:
+            # Scroll the canvas (adjust delta for sensitivity; Windows typically uses +/-120 per notch)
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        except Exception as e:
+            print(f"Scroll error: {e}")  # Debug print to console for troubleshooting
+
+    # Bind the event to the entire application (root window)
+    content_frame.winfo_toplevel().bind("<MouseWheel>", on_mouse_wheel)  # Use winfo_toplevel() for root
+
+    # Now pack them
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
 
     def submit():
         try:
@@ -698,12 +723,6 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
     tk.Label(scroll_frame, text="Project Name:").pack()
     name_entry = tk.Entry(scroll_frame)
     name_entry.pack()
-
-# Add mouse wheel support (works on Windows/Mac/Linux)
-def on_mouse_wheel(event):
-    canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")  # Adjust for wheel direction/sensitivity
-
-    canvas.bind_all("<MouseWheel>", on_mouse_wheel)  # Bind to all widgets for global wheel capture
 
     # Foundation Section
     foundation_frame = tk.LabelFrame(scroll_frame, text="Foundation")
