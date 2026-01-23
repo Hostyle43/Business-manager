@@ -1027,7 +1027,7 @@ def go_back(nav_history, content_frame):
         clear_content(content_frame)
         tk.Label(content_frame, text="Welcome! Select an option from the menu.").pack(pady=20)
 
-def main_gui(self):
+def main_gui():
     manager = BusinessManager()
 
     root = tk.Tk()
@@ -1040,28 +1040,28 @@ def main_gui(self):
     # Sidebar frame (left menu)
     # --- NEW SCROLLABLE SIDEBAR SECTION ---
     # 1. Outer container for the sidebar
-    self.sidebar_container = tk.Frame(self.root, width=200, bg='gray')
-    self.sidebar_container.pack(side='left', fill='y')
+    sidebar_container = tk.Frame(self.root, width=200, bg='gray')
+    sidebar_container.pack(side='left', fill='y')
 
     # 2. Canvas to enable scrolling
-    self.sidebar_canvas = tk.Canvas(self.sidebar_container, width=200, bg='gray', highlightthickness=0)
-    self.sidebar_scrollbar = tk.Scrollbar(self.sidebar_container, orient="vertical", command=self.sidebar_canvas.yview)
+    sidebar_canvas = tk.Canvas(self.sidebar_container, width=200, bg='gray', highlightthickness=0)
+    sidebar_scrollbar = tk.Scrollbar(self.sidebar_container, orient="vertical", command=self.sidebar_canvas.yview)
 
     # 3. The actual frame where your buttons go
-    self.sidebar = tk.Frame(self.sidebar_canvas, bg='gray')
+    sidebar = tk.Frame(self.sidebar_canvas, bg='gray')
 
     # 4. Link everything
-    self.sidebar.bind(
+    sidebar.bind(
         "<Configure>",
             lambda e: self.sidebar_canvas.configure(scrollregion=self.sidebar_canvas.bbox("all"))
         )
 
-    self.sidebar_canvas.create_window((0, 0), window=self.sidebar, anchor="nw")
-    self.sidebar_canvas.configure(yscrollcommand=self.sidebar_scrollbar.set)
+    sidebar_canvas.create_window((0, 0), window=self.sidebar, anchor="nw")
+    sidebar_canvas.configure(yscrollcommand=self.sidebar_scrollbar.set)
 
     # 5. Pack the canvas and scrollbar
-    self.sidebar_canvas.pack(side="left", fill="both", expand=True)
-    self.sidebar_scrollbar.pack(side="right", fill="y")
+    sidebar_canvas.pack(side="left", fill="both", expand=True)
+    sidebar_scrollbar.pack(side="right", fill="y")
     # --- END NEW SECTION ---
 
     tk.Button(sidebar, text="Excavating Estimator", command=lambda: excavating_estimator_gui(manager, content_frame, nav_history)).pack(fill=tk.X)
