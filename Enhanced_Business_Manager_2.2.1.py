@@ -699,6 +699,12 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
     name_entry = tk.Entry(scroll_frame)
     name_entry.pack()
 
+    # Add mouse wheel support (works on Windows/Mac/Linux)
+    def on_mouse_wheel(event):
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")  
+        # Adjust for wheel direction/sensitivitycanvas.bind_all("<MouseWheel>", on_mouse_wheel) 
+        # Bind to all widgets for global wheel capture
+
     # Foundation Section
     foundation_frame = tk.LabelFrame(scroll_frame, text="Foundation")
     foundation_frame.pack(fill=tk.BOTH, expand=True, pady=10)
