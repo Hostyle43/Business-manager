@@ -48,29 +48,36 @@ class BusinessManager:
 
 # Employee class (with availability added)
 class Employee:
-    def __init__(self, name, role, hourly_rate=0.0, hourly_cost=0.0, availability=None):
+    def __init__(self, name, role, availability, home, hourly_rate=0.0, hourly_cost=0.0):
         self.name = name
         self.role = role
+        self.availability = availability  # From tkcalendar
+        self.home = home  # Assuming this is a new field you added
         self.hourly_rate = hourly_rate
         self.hourly_cost = hourly_cost
-        self.hours_worked = 0
-        self.availability = availability or {}  # e.g., {'2026-01-25': True}
-        
+        # Rest of your __init__ (e.g., hours_worked = 0)
+
     def to_dict(self):
         return {
             'name': self.name,
             'role': self.role,
-            'hourly_rate': self.hourly_rate,
-            'hours_worked': self.hours_worked,
             'availability': self.availability,
+            'home': self.home,
+            'hourly_rate': self.hourly_rate,
             'hourly_cost': self.hourly_cost,
+            # Include other fields like hours_worked
         }
 
     @classmethod
     def from_dict(cls, data):
-        emp = cls(data['name'], data['role'], data['hourly_rate'], data.get('availability', {}))
-        emp.hours_worked = data.get('hours_worked', 0)
-        return emp
+        return cls(
+            data['name'],
+            data['role'],
+            data.get('availability', {}),
+            data.get('home', ''),
+            data.get('hourly_rate', 0.0),
+            data.get('hourly_cost', 0.0)
+        )
 
     def __str__(self):
         return f"Employee: {self.name} ({self.role}), Rate: ${self.hourly_rate}/hr, Cost: ${self.hourly_cost}/hr"
@@ -187,33 +194,27 @@ class Equipment:
                 f"Bucket Vol: {self.bucket_volume} cu yd, Cost: ${self.hourly_cost}/hr")
 
 # GUI Functions (views in content_frame, edits in pop-up Toplevel, with back navigation)
-def clear_content(frame):
-    for widget in frame.winfo_children():
-        widget.destroy()
-
 def add_employee_gui(manager, content_frame, nav_history):
     clear_content(content_frame)
-    nav_history.append(lambda: add_employee_gui(manager, content_frame, nav_history))  # Push self to history
+    nav_history.append(lambda: add_employee_gui(manager, content_frame, nav_history))
 
     def submit():
         name = name_entry.get()
         role = role_entry.get()
         try:
             rate = float(rate_entry.get())
-            cost = float(cost_entry.get())
-            # Get selected dates from calendar and mark as available
-            selected_dates = cal.selection_get() if cal.selection_get() else []  # tkcalendar allows multi-select? Wait, default is single; for multi, use list
-            # Note: tkcalendar default is single select; for multi, we'll simulate with a list and button
+            cost = float(cost_entry.get())  # Now reading from the new entry
+            # Get selected dates (from your tkcalendar multi-select simulation)
             availability = {date.strftime('%Y-%m-%d'): True for date in selected_dates_list}
-            emp = Employee(name, role, rate, cost, availability)
+            home = home_entry.get()  # Assuming you have a 'home' field
+            emp = Employee(name, role, availability, home, rate, cost)
             manager.employees.append(emp)
             messagebox.showinfo("Success", f"Added: {emp}")
-            go_back(nav_history, content_frame)  # Back after submit
+            go_back(nav_history, content_frame)
         except ValueError:
-            messagebox.showerror("Error", "Invalid input.")
+            messagebox.showerror("Error", "Invalid input for rates or costs.")
 
     tk.Label(content_frame, text="Add Employee").pack()
-
     tk.Label(content_frame, text="Name:").pack()
     name_entry = tk.Entry(content_frame)
     name_entry.pack()
@@ -222,31 +223,35 @@ def add_employee_gui(manager, content_frame, nav_history):
     role_entry = tk.Entry(content_frame)
     role_entry.pack()
 
+    tk.Label(content_frame, text="Home Address:").pack()  # If this is your 'home' field
+    home_entry = tk.Entry(content_frame)
+    home_entry.pack()
+
     tk.Label(content_frame, text="Hourly Rate:").pack()
     rate_entry = tk.Entry(content_frame)
     rate_entry.pack()
 
     tk.Label(content_frame, text="Hourly Cost:").pack()
-    cost_entry = tk.Entry(content_frame)
-    cost_entry.pack()
+    cost_entry = tk.Entry(content_frame)  # This was likely missing or not packed
+    cost_entry.pack()  # Ensure it's packed to appear in the GUI
 
+    # Your calendar setup (tkcalendar for availability)
     tk.Label(content_frame, text="Select Available Dates:").pack()
     cal = Calendar(content_frame, selectmode="day", date_pattern="y-mm-dd")
     cal.pack()
-
-    # For multi-select simulation (tkcalendar doesn't support native multi, so use a list and button)
     selected_dates_list = []
     def add_date():
         date = cal.get_date()
-        if date not in selected_dates_list:
-            selected_dates_list.append(datetime.strptime(date, '%Y-%m-%d'))
-            avail_label.config(text=f"Selected: {', '.join(d.strftime('%Y-%m-%d') for d in selected_dates_list)}")
-
+        dt = datetime.strptime(date, '%Y-%m-%d')
+        if dt not in selected_dates_list:
+            selected_dates_list.append(dt)
+        avail_label.config(text=f"Selected: {', '.join(d.strftime('%Y-%m-%d') for d in selected_dates_list)}")
     tk.Button(content_frame, text="Add Selected Date", command=add_date).pack()
     avail_label = tk.Label(content_frame, text="Selected: None")
     avail_label.pack()
 
     tk.Button(content_frame, text="Submit", command=submit).pack()
+
 
 def edit_employee_gui(manager, emp_index, refresh_callback):
     emp = manager.employees[emp_index]
