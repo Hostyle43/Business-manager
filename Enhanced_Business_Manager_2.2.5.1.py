@@ -1038,8 +1038,31 @@ def main_gui():
     nav_history = []
 
     # Sidebar frame (left menu)
-    sidebar = tk.Frame(root, width=200, bg="lightgray")
-    sidebar.pack(side="left", fill="y")
+    # --- NEW SCROLLABLE SIDEBAR SECTION ---
+    # 1. Outer container for the sidebar
+    self.sidebar_container = tk.Frame(self.root, width=200, bg='gray')
+    self.sidebar_container.pack(side='left', fill='y')
+
+    # 2. Canvas to enable scrolling
+    self.sidebar_canvas = tk.Canvas(self.sidebar_container, width=200, bg='gray', highlightthickness=0)
+    self.sidebar_scrollbar = tk.Scrollbar(self.sidebar_container, orient="vertical", command=self.sidebar_canvas.yview)
+
+    # 3. The actual frame where your buttons go
+    self.sidebar = tk.Frame(self.sidebar_canvas, bg='gray')
+
+    # 4. Link everything
+    self.sidebar.bind(
+        "<Configure>",
+            lambda e: self.sidebar_canvas.configure(scrollregion=self.sidebar_canvas.bbox("all"))
+        )
+
+    self.sidebar_canvas.create_window((0, 0), window=self.sidebar, anchor="nw")
+    self.sidebar_canvas.configure(yscrollcommand=self.sidebar_scrollbar.set)
+
+    # 5. Pack the canvas and scrollbar
+    self.sidebar_canvas.pack(side="left", fill="both", expand=True)
+    self.sidebar_scrollbar.pack(side="right", fill="y")
+    # --- END NEW SECTION ---
 
     tk.Button(sidebar, text="Excavating Estimator", command=lambda: excavating_estimator_gui(manager, content_frame, nav_history)).pack(fill=tk.X)
     tk.Button(sidebar, text="Add Employee", command=lambda: add_employee_gui(manager, content_frame, nav_history)).pack(pady=10, fill="x")
