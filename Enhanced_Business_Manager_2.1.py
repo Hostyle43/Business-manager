@@ -48,7 +48,7 @@ class BusinessManager:
 
 # Employee class (with availability added)
 class Employee:
-    def __init__(self, name, role, hourly_rate, hourly_cost, availability=None):
+    def __init__(self, name, role, hourly_rate=0.0, hourly_cost=0.0, availability=None):
         self.name = name
         self.role = role
         self.hourly_rate = hourly_rate
