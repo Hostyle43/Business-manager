@@ -612,10 +612,6 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
-# After all content is added to scroll_frame...
-scroll_frame.update_idletasks()  # Force update
-canvas.configure(scrollregion=canvas.bbox("all"))  # Re-set scrollregion
-
 
 def submit():
     try:
@@ -979,6 +975,8 @@ truck_cap_entry.bind("<KeyRelease>", update_auto_fields)
 tk.Button(scroll_frame, text="Calculate & Submit", command=submit).pack(pady=10)
 tk.Button(scroll_frame, text="Back", command=lambda: go_back(nav_history, content_frame)).pack()
 
+scroll_frame.update_idletasks()  # Force update
+canvas.configure(scrollregion=canvas.bbox("all"))  # Re-set scrollregion
 
 def add_work_item_gui(manager, content_frame, nav_history):
     clear_content(content_frame)
