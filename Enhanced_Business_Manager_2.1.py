@@ -48,20 +48,22 @@ class BusinessManager:
 
 # Employee class (with availability added)
 class Employee:
-    def __init__(self, name, role, hourly_rate, availability=None):
+    def __init__(self, name, role, hourly_rate, availability=None, hourly_cost):
         self.name = name
         self.role = role
         self.hourly_rate = hourly_rate
         self.hours_worked = 0
         self.availability = availability or {}  # e.g., {'2026-01-25': True}
-
+        self.hourly_cost = hourly_cost
+        
     def to_dict(self):
         return {
             'name': self.name,
             'role': self.role,
             'hourly_rate': self.hourly_rate,
             'hours_worked': self.hours_worked,
-            'availability': self.availability
+            'availability': self.availability,
+            'hourly_cost': self.hourly_cost,
         }
 
     @classmethod
@@ -71,7 +73,7 @@ class Employee:
         return emp
 
     def __str__(self):
-        return f"Employee: {self.name} ({self.role}), Rate: ${self.hourly_rate}/hr"
+        return f"Employee: {self.name} ({self.role}), Rate: ${self.hourly_rate}/hr, Cost: ${self.hourly_cost}/hr"
 
 # Project class (enhanced scheduling with availability and work codes)
 class Project:
