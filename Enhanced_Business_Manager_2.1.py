@@ -81,6 +81,164 @@ class Employee:
 
     def __str__(self):
         return f"Employee: {self.name} ({self.role}), Rate: ${self.hourly_rate}/hr, Cost: ${self.hourly_cost}/hr"
+import math
+
+class ExcavatingEstimate(Estimate):
+    def __init__(self, project_name, work_items=None, assigned_employees=None, assigned_equipment=None,
+                 # Foundation Inputs (from Excel "Foundation" section)
+                 footing_width=0.0, footing_length=0.0, footing_thickness=0.0,
+                 wall_sections=None,  # List of dicts: [{'width': 0.0, 'length': 0.0, 'depth': 0.0, 'tow': 0.0, 'bof': 0.0}]
+                 interior_exc_width=0.0, interior_exc_length=0.0, interior_exc_depth=0.0,
+                 piers=None,  # List of dicts: [{'width': 0.0, 'length': 0.0, 'depth': 0.0}]
+                 num_piers=0, avg_spoils_distance=0.0, building_corners=0, elevation_steps=0,
+                 # Utilities/Trenches (from "Utilities" section)
+                 water_depth=7.0, sewer_depth=5.0, power_depth=3.5, trench_linear_ft=0.0, trench_width=0.0,
+                 slope_over_ex=0.0, curtain_wall_depth=0.0, curtain_wall_width=0.0, curtain_wall_linear_ft=0.0,
+                 perimeter_drain_length=0.0, num_cleanouts=0, num_elbows=0, num_caps=0,
+                 # Slabs/Roads (from "Slabs" and "Roads" sections)
+                 slab_thickness=0.0, insulation_thickness=0.0, slab_length=0.0, slab_width=0.0, slab_fill_depth=0.0,
+                 slab_exc_depth=0.0, road_length=0.0, road_width=0.0, road_thickness=0.0, pitrun_depth=0.0,
+                 roadbase_depth=0.0,
+                 # Other
+                 export_loads=0, haul_truck_hours=0.0, compactor_cost=450.0, fuel_cost=0.0, mobilization_time=0.0,
+                 slope_angle=45.0, truck_capacity=10.0, trucking_distance=0.0, bedding_thickness=6.0,  # Inches
+                 **kwargs):
+        super().__init__(project_name, work_items, assigned_employees, **kwargs)
+        self.assigned_equipment = assigned_equipment or []
+        # Assign all inputs as attributes (abbreviated for brevity; add all above)
+        self.footing_width = footing_width
+        self.footing_length = footing_length
+        self.footing_thickness = footing_thickness
+        self.wall_sections = wall_sections or []
+        self.interior_exc_width = interior_exc_width
+        self.interior_exc_length = interior_exc_length
+        self.interior_exc_depth = interior_exc_depth
+        self.piers = piers or []
+        self.num_piers = num_piers
+        self.avg_spoils_distance = avg_spoils_distance
+        self.building_corners = building_corners
+        self.elevation_steps = elevation_steps
+        self.water_depth = water_depth
+        self.sewer_depth = sewer_depth
+        self.power_depth = power_depth
+        self.trench_linear_ft = trench_linear_ft
+        self.trench_width = trench_width
+        self.slope_over_ex = slope_over_ex
+        self.curtain_wall_depth = curtain_wall_depth
+        self.curtain_wall_width = curtain_wall_width
+        self.curtain_wall_linear_ft = curtain_wall_linear_ft
+        self.perimeter_drain_length = perimeter_drain_length
+        self.num_cleanouts = num_cleanouts
+        self.num_elbows = num_elbows
+        self.num_caps = num_caps
+        self.slab_thickness = slab_thickness
+        self.insulation_thickness = insulation_thickness
+        self.slab_length = slab_length
+        self.slab_width = slab_width
+        self.slab_fill_depth = slab_fill_depth
+        self.slab_exc_depth = slab_exc_depth
+        self.road_length = road_length
+        self.road_width = road_width
+        self.road_thickness = road_thickness
+        self.pitrun_depth = pitrun_depth
+        self.roadbase_depth = roadbase_depth
+        self.export_loads = export_loads
+        self.haul_truck_hours = haul_truck_hours
+        self.compactor_cost = compactor_cost
+        self.fuel_cost = fuel_cost
+        self.mobilization_time = mobilization_time
+        self.slope_angle = slope_angle
+        self.truck_capacity = truck_capacity
+        self.trucking_distance = trucking_distance
+        self.bedding_thickness = bedding_thickness
+        self.utility_materials = {}  # Computed later
+
+        # Rates from Excel
+        self.rates = {
+            'excavator_hourly': 165.0, 'loader_hourly': 155.0, 'haul_truck_hourly': 160.0, 'labor_hourly': 75.0,
+            'margin_general': 1.5, 'margin_trucking': 1.15, 'dump_fee_per_ton': 90.0, 'gravel_density_tons_per_yd': 1.5
+        }
+        self.productivity = {'excavator': 100.0, 'loader': 80.0}  # Cu yd/hr, inferred from examples
+
+    def calculate_volumes(self):
+        # Foundation Volumes (cu yd)
+        footing_vol = (self.footing_width * self.footing_length * self.footing_thickness) / 27
+        wall_vol = sum((ws['width'] * ws['length'] * ws['depth']) / 27 for ws in self.wall_sections)
+        interior_vol = (self.interior_exc_width * self.interior_exc_length * self.interior_exc_depth) / 27
+        piers_vol = sum((p['width'] * p['length'] * p['depth']) / 27 for p in self.piers) * self.num_piers
+        foundation_total = footing_vol + wall_vol + interior_vol + piers_vol
+
+        # Trench/Utility Volumes with Slope (trapezoidal)
+        slope_rad = math.radians(self.slope_angle)
+        width_top = self.trench_width + 2 * self.water_depth / math.tan(slope_rad) + self.slope_over_ex
+        trench_vol = self.trench_linear_ft * (self.trench_width + width_top) / 2 * self.water_depth / 27  # Using water depth as example; average for others
+        curtain_vol = (self.curtain_wall_linear_ft * self.curtain_wall_width * self.curtain_wall_depth) / 27
+
+        # Slabs/Roads
+        slab_vol = (self.slab_length * self.slab_width * self.slab_exc_depth) / 27
+        road_vol = (self.road_length * self.road_width * (self.pitrun_depth + self.roadbase_depth)) / 27
+
+        total_exc_vol = foundation_total + trench_vol + curtain_vol + slab_vol + road_vol
+        backfill_vol = total_exc_vol * 0.8  # Assume 80% backfill, per Excel patterns
+        export_vol = total_exc_vol - backfill_vol + (self.export_loads * self.truck_capacity)
+        return {'total_exc': total_exc_vol, 'backfill': backfill_vol, 'export': export_vol}
+
+    def calculate_times(self):
+        vols = self.calculate_volumes()
+        exc_time = vols['total_exc'] / self.productivity['excavator']  # Hours
+        load_time = vols['total_exc'] / self.productivity['loader']
+        backfill_time = vols['backfill'] / (self.productivity['loader'] * 0.8)
+        total_hours = exc_time + load_time + backfill_time + self.haul_truck_hours + self.mobilization_time
+        days = total_hours / 8.0  # Assume 8-hour days
+        self.estimated_hours = total_hours
+        return {'hours': total_hours, 'days': days}
+
+    def calculate_trucking(self):
+        vols = self.calculate_volumes()
+        num_loads = math.ceil(vols['export'] / self.truck_capacity)
+        trip_time = (self.trucking_distance / 30.0) * 2  # Round-trip, 30 mph
+        trucking_time = num_loads * trip_time
+        trucking_cost = trucking_time * self.rates['haul_truck_hourly'] * self.rates['margin_trucking']
+        dump_cost = (vols['export'] * self.rates['gravel_density_tons_per_yd']) * self.rates['dump_fee_per_ton']
+        return {'time': trucking_time, 'cost': trucking_cost + dump_cost, 'loads': num_loads}
+
+    def calculate_bedding_and_utilities(self):
+        bedding_vol = (self.trench_linear_ft * self.trench_width * (self.bedding_thickness / 12)) / 27  # Inches to ft
+        gravel_tons = bedding_vol * self.rates['gravel_density_tons_per_yd']
+        self.utility_materials = {
+            'perf_pipe_ft': self.perimeter_drain_length,
+            'solid_pipe_ft': self.trench_linear_ft * 1.1,  # 10% extra
+            'cleanouts': self.num_cleanouts, 'elbows': self.num_elbows, 'caps': self.num_caps
+        }
+        return {'bedding_vol': bedding_vol, 'gravel_tons': gravel_tons}
+
+    def calculate_totals(self, manager):
+        super().calculate_totals(manager)
+        times = self.calculate_times()
+        trucking = self.calculate_trucking()
+        bedding_utils = self.calculate_bedding_and_utilities()
+
+        # Equipment/Labor Costs
+        eq_cost = sum(eq.get('hourly_cost', 0.0) * times['hours'] for eq in self.assigned_equipment) * self.rates['margin_general']
+        labor_cost = len(self.assigned_employees) * self.rates['labor_hourly'] * times['hours'] * self.rates['margin_general']
+
+        self.total_cost = eq_cost + labor_cost + trucking['cost'] + self.fuel_cost + self.compactor_cost
+        self.total_rate = self.total_cost * 1.2  # Placeholder markup; adjust per Excel
+
+    # to_dict and from_dict similar to before, extended for new fields
+    def to_dict(self):
+        base = super().to_dict()
+        base.update({
+            'footing_width': self.footing_width,
+            # Add all other fields...
+        })
+        return base
+
+    @classmethod
+    def from_dict(cls, data, manager):
+        # Extended rehydration
+        return cls(data['project_name'], **data)
+
 
 # Project class (enhanced scheduling with availability and work codes)
 class Project:
@@ -375,6 +533,63 @@ def view_equipment_gui(manager, content_frame, nav_history):
     nav_history.append(lambda: view_equipment_gui(manager, content_frame, nav_history))
     tk.Label(content_frame, text="View Equipment (Placeholder)").pack()
     # Implement your equipment view here
+def excavating_estimator_gui(manager, content_frame, nav_history):
+    clear_content(content_frame)
+    nav_history.append(lambda: excavating_estimator_gui(manager, content_frame, nav_history))
+
+    def submit():
+        try:
+            # Collect inputs (abbreviated; add all fields similarly)
+            est = ExcavatingEstimate(
+                name_entry.get(),
+                footing_width=float(footing_width_entry.get()),
+                footing_length=float(footing_length_entry.get()),
+                footing_thickness=float(footing_thickness_entry.get()),
+                # Wall sections: Collect from a sub-form or list (simplified as single for now; expand to dynamic add)
+                wall_sections=[{'width': float(wall_width_entry.get()), 'length': float(wall_length_entry.get()), 'depth': float(wall_depth_entry.get())}],
+                # ... add all other inputs ...
+                assigned_employees=[manager.employees[i] for i in emp_listbox.curselection()],
+                assigned_equipment=[manager.equipment[i] for i in eq_listbox.curselection()]
+            )
+            est.calculate_totals(manager)
+            vols = est.calculate_volumes()
+            times = est.calculate_times()
+            trucking = est.calculate_trucking()
+            message = (f"Estimate: {est.project_name}\n"
+                       f"Excavation Vol: {vols['total_exc']:.2f} cu yd\n"
+                       f"Hours: {times['hours']:.2f} (Days: {times['days']:.2f})\n"
+                       f"Trucking: {trucking['loads']} loads, Cost: ${trucking['cost']:.2f}\n"
+                       f"Total Cost: ${est.total_cost:.2f}")
+            messagebox.showinfo("Success", message)
+            manager.estimates.append(est)
+            go_back(nav_history, content_frame)
+        except ValueError:
+            messagebox.showerror("Error", "Invalid input.")
+
+    # Foundation Section
+    foundation_frame = tk.LabelFrame(content_frame, text="Foundation")
+    foundation_frame.pack(fill=tk.BOTH, expand=True)
+    tk.Label(foundation_frame, text="Footing Width (ft):").pack()
+    footing_width_entry = tk.Entry(foundation_frame)
+    footing_width_entry.pack()
+    # Add similar for footing_length, thickness, interior_exc_*, etc.
+    # For lists like wall_sections, add buttons to add multiple (advanced; start simple)
+
+    # Utilities Section
+    utilities_frame = tk.LabelFrame(content_frame, text="Utilities/Trenches")
+    utilities_frame.pack(fill=tk.BOTH, expand=True)
+    tk.Label(utilities_frame, text="Trench Linear Ft:").pack()
+    trench_linear_ft_entry = tk.Entry(utilities_frame)
+    trench_linear_ft_entry.pack()
+    # Add for depths, widths, perimeter_drain_length, num_cleanouts, etc.
+
+    # Slabs/Roads Section (similar)
+
+    # Equipment/Employee Selection (as before)
+    # ...
+
+    tk.Button(content_frame, text="Calculate & Submit", command=submit).pack()
+
 
 def create_project_gui(manager, content_frame, nav_history):
     clear_content(content_frame)
