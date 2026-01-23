@@ -1027,7 +1027,7 @@ def go_back(nav_history, content_frame):
         clear_content(content_frame)
         tk.Label(content_frame, text="Welcome! Select an option from the menu.").pack(pady=20)
 
-def main_gui():
+def main_gui(self):
     manager = BusinessManager()
 
     root = tk.Tk()
