@@ -701,8 +701,8 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
 
     # Add mouse wheel support (works on Windows/Mac/Linux)
     def on_mouse_wheel(event):
-        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")  
-        # Adjust for wheel direction/sensitivitycanvas.bind_all("<MouseWheel>", on_mouse_wheel) 
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        # Adjust for wheel direction/sensitivitycanvas.bind_all("<MouseWheel>", on_mouse_wheel)
         # Bind to all widgets for global wheel capture
 
     # Foundation Section
