@@ -617,18 +617,18 @@ scroll_frame.update_idletasks()  # Force update
 canvas.configure(scrollregion=canvas.bbox("all"))  # Re-set scrollregion
 
 
-    def submit():
-        try:
-            # Collect all inputs
-            wall_sections = []
-            for i in range(3):  # Up to 3 wall sections; expand as needed
-                if wall_width_entries[i].get() and wall_length_entries[i].get() and wall_depth_entries[i].get():
-                    wall_sections.append({
-                        'width': float(wall_width_entries[i].get()),
-                        'length': float(wall_length_entries[i].get()),
-                        'depth': float(wall_depth_entries[i].get()),
-                        'tow': float(wall_tow_entries[i].get() or 0),  # Optional
-                        'bof': float(wall_bof_entries[i].get() or 0)
+def submit():
+    try:
+        # Collect all inputs
+        wall_sections = []
+        for i in range(3):  # Up to 3 wall sections; expand as needed
+            if wall_width_entries[i].get() and wall_length_entries[i].get() and wall_depth_entries[i].get():
+                wall_sections.append({
+                    'width': float(wall_width_entries[i].get()),
+                    'length': float(wall_length_entries[i].get()),
+                    'depth': float(wall_depth_entries[i].get()),
+                    'tow': float(wall_tow_entries[i].get() or 0),  # Optional
+                    'bof': float(wall_bof_entries[i].get() or 0)
                     })
 
             piers = []
