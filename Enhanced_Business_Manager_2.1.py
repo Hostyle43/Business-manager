@@ -48,13 +48,13 @@ class BusinessManager:
 
 # Employee class (with availability added)
 class Employee:
-    def __init__(self, name, role, hourly_rate, availability=None, hourly_cost):
+    def __init__(self, name, role, hourly_rate, hourly_cost, availability=None):
         self.name = name
         self.role = role
         self.hourly_rate = hourly_rate
+        self.hourly_cost = hourly_cost
         self.hours_worked = 0
         self.availability = availability or {}  # e.g., {'2026-01-25': True}
-        self.hourly_cost = hourly_cost
         
     def to_dict(self):
         return {
