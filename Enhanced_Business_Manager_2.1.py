@@ -783,6 +783,7 @@ def main_gui():
     sidebar = tk.Frame(root, width=200, bg="lightgray")
     sidebar.pack(side="left", fill="y")
 
+    tk.Button(sidebar, text="Excavating Estimator", command=lambda: excavating_estimator_gui(manager, content_frame, nav_history)).pack(fill=tk.X)
     tk.Button(sidebar, text="Add Employee", command=lambda: add_employee_gui(manager, content_frame, nav_history)).pack(pady=10, fill="x")
     tk.Button(sidebar, text="Add Equipment", command=lambda: add_equipment_gui(manager, content_frame, nav_history)).pack(pady=10, fill="x")
     tk.Button(sidebar, text="View Equipment", command=lambda: view_equipment_gui(manager, content_frame, nav_history)).pack(pady=10, fill="x")
