@@ -205,7 +205,7 @@ def add_employee_gui(manager, content_frame, nav_history):
             selected_dates = cal.selection_get() if cal.selection_get() else []  # tkcalendar allows multi-select? Wait, default is single; for multi, use list
             # Note: tkcalendar default is single select; for multi, we'll simulate with a list and button
             availability = {date.strftime('%Y-%m-%d'): True for date in selected_dates_list}
-            emp = Employee(name, role, rate, availability)
+            emp = Employee(name, role, rate, cost, availability)
             manager.employees.append(emp)
             messagebox.showinfo("Success", f"Added: {emp}")
             go_back(nav_history, content_frame)  # Back after submit
@@ -227,7 +227,7 @@ def add_employee_gui(manager, content_frame, nav_history):
     rate_entry.pack()
 
     tk.Label(content_frame, text="Hourly Cost:").pack()
-    cost_entry = tk.Entry(content-frame)
+    cost_entry = tk.Entry(content_frame)
     cost_entry.pack()
 
     tk.Label(content_frame, text="Select Available Dates:").pack()
