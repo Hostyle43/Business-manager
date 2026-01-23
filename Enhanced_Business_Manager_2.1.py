@@ -200,6 +200,7 @@ def add_employee_gui(manager, content_frame, nav_history):
         role = role_entry.get()
         try:
             rate = float(rate_entry.get())
+            cost = float(cost_entry.get())
             # Get selected dates from calendar and mark as available
             selected_dates = cal.selection_get() if cal.selection_get() else []  # tkcalendar allows multi-select? Wait, default is single; for multi, use list
             # Note: tkcalendar default is single select; for multi, we'll simulate with a list and button
@@ -224,6 +225,10 @@ def add_employee_gui(manager, content_frame, nav_history):
     tk.Label(content_frame, text="Hourly Rate:").pack()
     rate_entry = tk.Entry(content_frame)
     rate_entry.pack()
+
+    tk.Label(content_frame, text="Hourly Cost:").pack()
+    cost_entry = tk.Entry(content-frame)
+    cost_entry.pack()
 
     tk.Label(content_frame, text="Select Available Dates:").pack()
     cal = Calendar(content_frame, selectmode="day", date_pattern="y-mm-dd")
@@ -254,6 +259,7 @@ def edit_employee_gui(manager, emp_index, refresh_callback):
         emp.role = role_entry.get()
         try:
             emp.hourly_rate = float(rate_entry.get())
+            emp.hourly_cost = float(rate-entry.get())
             # Update availability from selected dates
             emp.availability = {date.strftime('%Y-%m-%d'): True for date in selected_dates_list}
             messagebox.showinfo("Success", f"Updated: {emp}")
@@ -276,6 +282,11 @@ def edit_employee_gui(manager, emp_index, refresh_callback):
     rate_entry = tk.Entry(window)
     rate_entry.insert(0, str(emp.hourly_rate))
     rate_entry.pack()
+
+    tk.Label(window, text="Hourly Cost:").pack()
+    cost_entry =tk.Entry(window)
+    cost_entry.insert(0, str(emp.hourly_cost))
+    cost_entry.pack()
 
     tk.Label(window, text="Select Available Dates (replaces existing):").pack()
     cal = Calendar(window, selectmode="day", date_pattern="y-mm-dd")
@@ -305,10 +316,11 @@ def view_employees_gui(manager, content_frame, nav_history):
 
     tk.Label(content_frame, text="View Employees").pack()
 
-    emp_list = ttk.Treeview(content_frame, columns=("Name", "Role", "Rate"), show="headings")
+    emp_list = ttk.Treeview(content_frame, columns=("Name", "Role", "Rate", "Cost"), show="headings")
     emp_list.heading("Name", text="Name")
     emp_list.heading("Role", text="Role")
     emp_list.heading("Rate", text="Hourly Rate")
+    emp_list.heading("Cost", text="Hourly cost")
 
     def refresh_list():
         emp_list.delete(*emp_list.get_children())
