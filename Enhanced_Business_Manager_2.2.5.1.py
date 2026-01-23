@@ -11,6 +11,65 @@ from datetime import datetime, timedelta  # For date handling
 import random  # For demo: Randomly assign work codes to tasks
 from tkcalendar import Calendar  # For calendar widget (pip install tkcalendar)
 
+class BusinessManagerApp:
+    def __init__(self):
+        self.data = load_data()
+        self.root = tk.Tk()
+        self.root.title("Business Manager Pro")
+        self.root.geometry("1200x800")
+        self.main_gui()  # Call the method to build the GUI
+        self.root.mainloop()
+
+    def main_gui(self):
+        # Main Container
+        self.main_container = tk.Frame(self.root)
+        self.main_container.pack(fill="both", expand=True)
+
+        # Sidebar (The problematic area) - We'll fix this in Step 2 below
+        self.sidebar_container = tk.Frame(self.main_container, width=200, bg='gray')  # Changed to self.main_container
+        self.sidebar_container.pack(side='left', fill='y')
+
+        self.sidebar_canvas = tk.Canvas(self.sidebar_container, width=200, bg='gray', highlightthickness=0)
+        self.sidebar_scrollbar = tk.Scrollbar(self.sidebar_container, orient="vertical", command=self.sidebar_canvas.yview)
+        self.sidebar = tk.Frame(self.sidebar_canvas, bg='gray')
+        # Enhanced binding for dynamic content (e.g., when estimator buttons are added)
+def update_scrollregion(event=None):
+    self.sidebar_canvas.configure(scrollregion=self.sidebar_canvas.bbox("all"))
+
+self.sidebar.bind("<Configure>", update_scrollregion)
+self.root.after(100, update_scrollregion)  # Force initial update after 100ms
+
+# Mouse wheel support (binds to the whole root window)
+def on_mousewheel(event):
+    self.sidebar_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+self.root.bind_all("<MouseWheel>", on_mousewheel)
+
+
+        self.sidebar.bind(
+            "<Configure>",
+            lambda e: self.sidebar_canvas.configure(
+                scrollregion=self.sidebar_canvas.bbox("all")
+            )
+        )
+
+        self.sidebar_canvas.create_window((0, 0), window=self.sidebar, anchor="nw")
+        self.sidebar_canvas.configure(yscrollcommand=self.sidebar_scrollbar.set)
+
+        self.sidebar_canvas.pack(side="left", fill="both", expand=True)
+        self.sidebar_scrollbar.pack(side="right", fill="y")
+
+        # Viewer Pane
+        self.viewer_pane = tk.Frame(self.main_container, bg="white")
+        self.viewer_pane.pack(side="right", fill="both", expand=True)
+
+        # ... Paste your existing menu buttons and estimator loading logic here ...
+        # For example, if you have buttons that load the Excavating Estimator into self.viewer_pane, keep them as-is.
+
+if __name__ == "__main__":
+    app = BusinessManagerApp()  # This creates the instance and starts the app
+
+
 class BusinessManager:
     def __init__(self, data_file='app_data.json'):
         self.data_file = data_file
