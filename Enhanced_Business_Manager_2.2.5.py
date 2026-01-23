@@ -612,6 +612,11 @@ import math
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
+# After all content is added to scroll_frame...
+scroll_frame.update_idletasks()  # Force update
+canvas.configure(scrollregion=canvas.bbox("all"))  # Re-set scrollregion
+
+
     def submit():
         try:
             # Collect all inputs
