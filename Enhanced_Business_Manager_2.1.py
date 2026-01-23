@@ -255,21 +255,21 @@ def add_employee_gui(manager, content_frame, nav_history):
 
 def edit_employee_gui(manager, emp_index, refresh_callback):
     emp = manager.employees[emp_index]
-
     window = tk.Toplevel()
     window.title("Edit Employee")
 
     def submit():
         emp.name = name_entry.get()
         emp.role = role_entry.get()
+        emp.home = home_entry.get()  # If applicable
         try:
             emp.hourly_rate = float(rate_entry.get())
-            emp.hourly_cost = float(rate-entry.get())
-            # Update availability from selected dates
+            emp.hourly_cost = float(cost_entry.get())  # Reading from the entry
+            # Update availability
             emp.availability = {date.strftime('%Y-%m-%d'): True for date in selected_dates_list}
             messagebox.showinfo("Success", f"Updated: {emp}")
             window.destroy()
-            refresh_callback()  # Refresh the viewer list after edit
+            refresh_callback()
         except ValueError:
             messagebox.showerror("Error", "Invalid input.")
 
@@ -283,33 +283,38 @@ def edit_employee_gui(manager, emp_index, refresh_callback):
     role_entry.insert(0, emp.role)
     role_entry.pack()
 
+    tk.Label(window, text="Home Address:").pack()
+    home_entry = tk.Entry(window)
+    home_entry.insert(0, emp.home)
+    home_entry.pack()
+
     tk.Label(window, text="Hourly Rate:").pack()
     rate_entry = tk.Entry(window)
     rate_entry.insert(0, str(emp.hourly_rate))
     rate_entry.pack()
 
     tk.Label(window, text="Hourly Cost:").pack()
-    cost_entry =tk.Entry(window)
-    cost_entry.insert(0, str(emp.hourly_cost))
+    cost_entry = tk.Entry(window)  # This was likely missing or not inserted
+    cost_entry.insert(0, str(emp.hourly_cost))  # Pre-fill with current value
     cost_entry.pack()
 
+    # Calendar for editing availability (similar to add)
     tk.Label(window, text="Select Available Dates (replaces existing):").pack()
     cal = Calendar(window, selectmode="day", date_pattern="y-mm-dd")
     cal.pack()
-
-    selected_dates_list = [datetime.strptime(date, '%Y-%m-%d') for date in emp.availability if emp.availability[date]]
+    selected_dates_list = [datetime.strptime(date, '%Y-%m-%d') for date in emp.availability if emp.availability.get(date)]
     def add_date():
         date = cal.get_date()
         dt = datetime.strptime(date, '%Y-%m-%d')
         if dt not in selected_dates_list:
             selected_dates_list.append(dt)
-            avail_label.config(text=f"Selected: {', '.join(d.strftime('%Y-%m-%d') for d in selected_dates_list)}")
-
+        avail_label.config(text=f"Selected: {', '.join(d.strftime('%Y-%m-%d') for d in selected_dates_list)}")
     tk.Button(window, text="Add Selected Date", command=add_date).pack()
     avail_label = tk.Label(window, text=f"Selected: {', '.join(d.strftime('%Y-%m-%d') for d in selected_dates_list)}")
     avail_label.pack()
 
     tk.Button(window, text="Submit", command=submit).pack()
+
 
 def view_employees_gui(manager, content_frame, nav_history):
     clear_content(content_frame)
