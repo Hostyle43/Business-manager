@@ -286,32 +286,6 @@ class ExcavatingEstimate(Estimate):
         # Extended rehydration
         return cls(data['project_name'], **data)
 
-# Inside excavating_estimator_gui, after all entries are created...
-
-def update_auto_fields(*args):
-    try:
-        # Example 1: Auto-fill perimeter_drain_length ~ slab perimeter (approx)
-        slab_l = float(slab_length_entry.get() or 0)
-        slab_w = float(slab_width_entry.get() or 0)
-        perimeter_length_entry.delete(0, tk.END)
-        perimeter_length_entry.insert(0, str(2 * (slab_l + slab_w) * 1.1))  # 10% extra for corners
-        
-        # Example 2: Suggest export_loads based on truck_capacity (placeholder; full calc after submit)
-        truck_cap = float(truck_cap_entry.get() or 10.0)
-        # For now, a simple suggestion; integrate with volumes later
-        export_loads_entry.delete(0, tk.END)
-        export_loads_entry.insert(0, str(math.ceil(100 / truck_cap)))  # Dummy; replace with real vol estimate
-        
-        # Add more auto-fills here as we progress (e.g., trench_width = 2.0 if power_depth > 0)
-    except ValueError:
-        pass  # Ignore invalid inputs during typing
-
-# Bind to key releases for dynamic updates
-slab_length_entry.bind("<KeyRelease>", update_auto_fields)
-slab_width_entry.bind("<KeyRelease>", update_auto_fields)
-truck_cap_entry.bind("<KeyRelease>", update_auto_fields)
-# Bind more as needed, e.g., power_depth_entry.bind(...)
-
 
 # Project class (enhanced scheduling with availability and work codes)
 class Project:
@@ -614,7 +588,7 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
 
     clear_content(content_frame)
     nav_history.append(lambda: excavating_estimator_gui(manager, content_frame, nav_history))
-
+import math
     # GUI Layout: Scrollable canvas for many fields
     canvas = tk.Canvas(content_frame)
     scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
@@ -954,6 +928,47 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
     for i, eq in enumerate(manager.equipment):
         eq_listbox.insert(tk.END, eq.get('name', 'Unknown'))  # Assuming equipment is list of dicts with 'name'
     eq_listbox.pack()
+
+
+# Updated auto-fill function
+def update_auto_fields(*args):
+    try:
+        # Example 1: Auto-fill perimeter_drain_length = total footing lengths + 10%
+        total_footing_length = 0.0
+        for entries in wall_sections_entries:  # From your wall/footing setup
+            try:
+                footing_len = float(entries['footing_length'].get() or 0)
+                total_footing_length += footing_len
+            except ValueError:
+                pass  # Skip invalid entries during typing
+        perimeter_length_entry.delete(0, tk.END)
+        perimeter_length_entry.insert(0, str(total_footing_length * 1.1))  # +10% for offset
+
+        # Example 2: Suggest export_loads based on truck_capacity (placeholder; we'll refine with real volumes later)
+        truck_cap = float(truck_cap_entry.get() or 10.0)
+        # Dummy suggestion: assumes ~100 cu yd export; replace with actual est.export_vol after testing
+        suggested_loads = math.ceil(100 / truck_cap)  # Update this logic as we progress
+        export_loads_entry.delete(0, tk.END)
+        export_loads_entry.insert(0, str(suggested_loads))
+
+        # Add more auto-fills here progressively (e.g., trench_width = 2.0 if any utility depth > 0)
+        # Example placeholder: if power_depth_entry.get():
+        #     trench_width_entry.delete(0, tk.END)
+        #     trench_width_entry.insert(0, "2.0")
+    except ValueError:
+        pass  # Ignore invalid inputs during typing
+
+# Updated bindings (add to any fields that should trigger updates)
+for entries in wall_sections_entries:
+    entries['footing_length'].bind("<KeyRelease>", update_auto_fields)  # Bind to each footing length
+    entries['length'].bind("<KeyRelease>", update_auto_fields)  # Also bind wall length (since it auto-matches footing)
+
+# Existing bindings (keep these)
+slab_length_entry.bind("<KeyRelease>", update_auto_fields)
+slab_width_entry.bind("<KeyRelease>", update_auto_fields)
+truck_cap_entry.bind("<KeyRelease>", update_auto_fields)
+# Add more as needed, e.g., power_depth_entry.bind("<KeyRelease>", update_auto_fields)
+
 
     tk.Button(scroll_frame, text="Calculate & Submit", command=submit).pack(pady=10)
     tk.Button(scroll_frame, text="Back", command=lambda: go_back(nav_history, content_frame)).pack()
