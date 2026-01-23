@@ -14,6 +14,7 @@ from tkcalendar import Calendar  # For calendar widget (pip install tkcalendar)
 class BusinessManager:
     def __init__(self, data_file='app_data.json'):
         self.data_file = data_file
+        self.estimates = []
         self.employees = []  # List of Employee objects
         self.equipment = []  # List of Equipment objects
         self.projects = []   # List of Project objects
@@ -24,6 +25,7 @@ class BusinessManager:
         if os.path.exists(self.data_file):
             with open(self.data_file, 'r') as f:
                 data = json.load(f)
+                self.estimates = [ExcavatingEstimate.from_dict(d, self) for d in data.get('estimates', [])]  # Use subclass if all are excavating
                 self.employees = [Employee.from_dict(e) for e in data.get('employees', [])]
                 self.equipment = [Equipment.from_dict(eq) for eq in data.get('equipment', [])]
                 self.projects = [Project.from_dict(p) for p in data.get('projects', [])]
@@ -34,6 +36,7 @@ class BusinessManager:
 
     def save_data(self):
         data = {
+            'estimates': [est.to_dict() for est in self.estimates],
             'employees': [e.to_dict() for e in self.employees],
             'equipment': [eq.to_dict() for eq in self.equipment],
             'projects': [p.to_dict() for p in self.projects],
@@ -82,6 +85,50 @@ class Employee:
     def __str__(self):
         return f"Employee: {self.name} ({self.role}), Rate: ${self.hourly_rate}/hr, Cost: ${self.hourly_cost}/hr"
 import math
+
+class Estimate:
+    def __init__(self, project_name, work_items=None, assigned_employees=None, estimated_hours=0.0, total_cost=0.0, total_rate=0.0):
+        self.project_name = project_name
+        self.work_items = work_items or []  # List of dicts, e.g., [{'code': '001', 'description': 'Excavate trench', 'est_hours': 10}]
+        self.assigned_employees = assigned_employees or []  # List of Employee objects
+        self.estimated_hours = estimated_hours
+        self.total_cost = total_cost
+        self.total_rate = total_rate
+
+    def calculate_totals(self, manager):
+        self.estimated_hours = sum(item.get('est_hours', 0) for item in self.work_items)
+        self.total_cost = 0.0
+        self.total_rate = 0.0
+        for emp in self.assigned_employees:
+            if isinstance(emp, str):  # If loaded as names, fetch from manager
+                emp = next((e for e in manager.employees if e.name == emp), None)
+            if emp:
+                self.total_cost += emp.hourly_cost * self.estimated_hours
+                self.total_rate += emp.hourly_rate * self.estimated_hours
+        # Add markup or other logic as needed
+
+    def to_dict(self):
+        return {
+            'project_name': self.project_name,
+            'work_items': self.work_items,
+            'assigned_employees': [emp.name if hasattr(emp, 'name') else emp for emp in self.assigned_employees],
+            'estimated_hours': self.estimated_hours,
+            'total_cost': self.total_cost,
+            'total_rate': self.total_rate
+        }
+
+    @classmethod
+    def from_dict(cls, data, manager):
+        assigned = [next((emp for emp in manager.employees if emp.name == name), name) for name in data.get('assigned_employees', [])]
+        return cls(
+            data['project_name'],
+            data.get('work_items', []),
+            assigned,
+            data.get('estimated_hours', 0.0),
+            data.get('total_cost', 0.0),
+            data.get('total_rate', 0.0)
+        )
+
 
 class ExcavatingEstimate(Estimate):
     def __init__(self, project_name, work_items=None, assigned_employees=None, assigned_equipment=None,
