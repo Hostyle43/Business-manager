@@ -580,21 +580,83 @@ def view_equipment_gui(manager, content_frame, nav_history):
     nav_history.append(lambda: view_equipment_gui(manager, content_frame, nav_history))
     tk.Label(content_frame, text="View Equipment (Placeholder)").pack()
     # Implement your equipment view here
+import tkinter as tk
+from tkinter import messagebox
+
 def excavating_estimator_gui(manager, content_frame, nav_history):
-    clear_content(content_frame)
+    clear_content(content_frame)  # Clear existing content
     nav_history.append(lambda: excavating_estimator_gui(manager, content_frame, nav_history))
 
     def submit():
         try:
-            # Collect inputs (abbreviated; add all fields similarly)
+            # Collect all inputs
+            wall_sections = []
+            for i in range(3):  # Up to 3 wall sections; expand as needed
+                if wall_width_entries[i].get() and wall_length_entries[i].get() and wall_depth_entries[i].get():
+                    wall_sections.append({
+                        'width': float(wall_width_entries[i].get()),
+                        'length': float(wall_length_entries[i].get()),
+                        'depth': float(wall_depth_entries[i].get()),
+                        'tow': float(wall_tow_entries[i].get() or 0),  # Optional
+                        'bof': float(wall_bof_entries[i].get() or 0)
+                    })
+
+            piers = []
+            for i in range(3):  # Up to 3 piers
+                if pier_width_entries[i].get() and pier_length_entries[i].get() and pier_depth_entries[i].get():
+                    piers.append({
+                        'width': float(pier_width_entries[i].get()),
+                        'length': float(pier_length_entries[i].get()),
+                        'depth': float(pier_depth_entries[i].get())
+                    })
+
             est = ExcavatingEstimate(
-                name_entry.get(),
-                footing_width=float(footing_width_entry.get()),
-                footing_length=float(footing_length_entry.get()),
-                footing_thickness=float(footing_thickness_entry.get()),
-                # Wall sections: Collect from a sub-form or list (simplified as single for now; expand to dynamic add)
-                wall_sections=[{'width': float(wall_width_entry.get()), 'length': float(wall_length_entry.get()), 'depth': float(wall_depth_entry.get())}],
-                # ... add all other inputs ...
+                project_name=name_entry.get(),
+                footing_width=float(footing_width_entry.get() or 0),
+                footing_length=float(footing_length_entry.get() or 0),
+                footing_thickness=float(footing_thickness_entry.get() or 0),
+                wall_sections=wall_sections,
+                interior_exc_width=float(interior_width_entry.get() or 0),
+                interior_exc_length=float(interior_length_entry.get() or 0),
+                interior_exc_depth=float(interior_depth_entry.get() or 0),
+                piers=piers,
+                num_piers=int(num_piers_entry.get() or 0),
+                avg_spoils_distance=float(avg_spoils_entry.get() or 0),
+                building_corners=int(corners_entry.get() or 0),
+                elevation_steps=int(steps_entry.get() or 0),
+                water_depth=float(water_depth_entry.get() or 7.0),
+                sewer_depth=float(sewer_depth_entry.get() or 5.0),
+                power_depth=float(power_depth_entry.get() or 3.5),
+                trench_linear_ft=float(trench_ft_entry.get() or 0),
+                trench_width=float(trench_width_entry.get() or 0),
+                slope_over_ex=float(slope_over_entry.get() or 0),
+                curtain_wall_depth=float(curtain_depth_entry.get() or 0),
+                curtain_wall_width=float(curtain_width_entry.get() or 0),
+                curtain_wall_linear_ft=float(curtain_ft_entry.get() or 0),
+                perimeter_drain_length=float(perimeter_length_entry.get() or 0),
+                num_cleanouts=int(cleanouts_entry.get() or 0),
+                num_elbows=int(elbows_entry.get() or 0),
+                num_caps=int(caps_entry.get() or 0),
+                slab_thickness=float(slab_thickness_entry.get() or 0),
+                insulation_thickness=float(insulation_entry.get() or 0),
+                slab_length=float(slab_length_entry.get() or 0),
+                slab_width=float(slab_width_entry.get() or 0),
+                slab_fill_depth=float(slab_fill_entry.get() or 0),
+                slab_exc_depth=float(slab_exc_entry.get() or 0),
+                road_length=float(road_length_entry.get() or 0),
+                road_width=float(road_width_entry.get() or 0),
+                road_thickness=float(road_thickness_entry.get() or 0),
+                pitrun_depth=float(pitrun_entry.get() or 0),
+                roadbase_depth=float(roadbase_entry.get() or 0),
+                export_loads=int(export_loads_entry.get() or 0),
+                haul_truck_hours=float(haul_hours_entry.get() or 0),
+                compactor_cost=float(compactor_entry.get() or 450.0),
+                fuel_cost=float(fuel_entry.get() or 0),
+                mobilization_time=float(mobilization_entry.get() or 0),
+                slope_angle=float(slope_angle_entry.get() or 45.0),
+                truck_capacity=float(truck_cap_entry.get() or 10.0),
+                trucking_distance=float(trucking_dist_entry.get() or 0),
+                bedding_thickness=float(bedding_entry.get() or 6.0),
                 assigned_employees=[manager.employees[i] for i in emp_listbox.curselection()],
                 assigned_equipment=[manager.equipment[i] for i in eq_listbox.curselection()]
             )
@@ -602,78 +664,249 @@ def excavating_estimator_gui(manager, content_frame, nav_history):
             vols = est.calculate_volumes()
             times = est.calculate_times()
             trucking = est.calculate_trucking()
-            message = (f"Estimate: {est.project_name}\n"
-                       f"Excavation Vol: {vols['total_exc']:.2f} cu yd\n"
-                       f"Hours: {times['hours']:.2f} (Days: {times['days']:.2f})\n"
-                       f"Trucking: {trucking['loads']} loads, Cost: ${trucking['cost']:.2f}\n"
-                       f"Total Cost: ${est.total_cost:.2f}")
-            messagebox.showinfo("Success", message)
+            bedding_utils = est.calculate_bedding_and_utilities()
+
+            # Display results (mirroring Excel totals)
+            message = (
+                f"Estimate for {est.project_name}:\n\n"
+                f"**Volumes (cu yd)**:\nTotal Excavation: {vols['total_exc']:.2f}\nBackfill: {vols['backfill']:.2f}\nExport: {vols['export']:.2f}\n\n"
+                f"**Times**:\nHours: {times['hours']:.2f} (Days: {times['days']:.2f})\n\n"
+                f"**Trucking**:\nLoads: {trucking['loads']}\nTime: {trucking['time']:.2f} hrs\nCost: ${trucking['cost']:.2f}\n\n"
+                f"**Bedding & Utilities**:\nBedding Vol: {bedding_utils['bedding_vol']:.2f} cu yd\nGravel Tons: {bedding_utils['gravel_tons']:.2f}\n"
+                f"Perf Pipe: {est.utility_materials['perf_pipe_ft']:.2f} ft\nSolid Pipe: {est.utility_materials['solid_pipe_ft']:.2f} ft\n"
+                f"Cleanouts/Elbows/Caps: {est.utility_materials['cleanouts']}/{est.utility_materials['elbows']}/{est.utility_materials['caps']}\n\n"
+                f"**Totals**:\nEstimated Hours: {est.estimated_hours:.2f}\nTotal Cost: ${est.total_cost:.2f}\nTotal Rate: ${est.total_rate:.2f}"
+            )
+            messagebox.showinfo("Estimate Results", message)
             manager.estimates.append(est)
+            manager.save_data()  # Save immediately
             go_back(nav_history, content_frame)
-        except ValueError:
-            messagebox.showerror("Error", "Invalid input.")
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid input: {str(e)}. Please check numeric fields.")
+
+    # GUI Layout: Scrollable canvas for many fields
+    canvas = tk.Canvas(content_frame)
+    scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+    scroll_frame = tk.Frame(canvas)
+    scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    tk.Label(scroll_frame, text="Excavating Estimator").pack()
+    tk.Label(scroll_frame, text="Project Name:").pack()
+    name_entry = tk.Entry(scroll_frame)
+    name_entry.pack()
 
     # Foundation Section
-    foundation_frame = tk.LabelFrame(content_frame, text="Foundation")
-    foundation_frame.pack(fill=tk.BOTH, expand=True)
+    foundation_frame = tk.LabelFrame(scroll_frame, text="Foundation")
+    foundation_frame.pack(fill=tk.BOTH, expand=True, pady=10)
     tk.Label(foundation_frame, text="Footing Width (ft):").pack()
     footing_width_entry = tk.Entry(foundation_frame)
     footing_width_entry.pack()
-    # Add similar for footing_length, thickness, interior_exc_*, etc.
-    # For lists like wall_sections, add buttons to add multiple (advanced; start simple)
+    tk.Label(foundation_frame, text="Footing Length (ft):").pack()
+    footing_length_entry = tk.Entry(foundation_frame)
+    footing_length_entry.pack()
+    tk.Label(foundation_frame, text="Footing Thickness (ft):").pack()
+    footing_thickness_entry = tk.Entry(foundation_frame)
+    footing_thickness_entry.pack()
+    tk.Label(foundation_frame, text="Interior Exc. Width (ft):").pack()
+    interior_width_entry = tk.Entry(foundation_frame)
+    interior_width_entry.pack()
+    tk.Label(foundation_frame, text="Interior Exc. Length (ft):").pack()
+    interior_length_entry = tk.Entry(foundation_frame)
+    interior_length_entry.pack()
+    tk.Label(foundation_frame, text="Interior Exc. Depth (ft):").pack()
+    interior_depth_entry = tk.Entry(foundation_frame)
+    interior_depth_entry.pack()
+    tk.Label(foundation_frame, text="Avg Spoils Distance (ft):").pack()
+    avg_spoils_entry = tk.Entry(foundation_frame)
+    avg_spoils_entry.pack()
+    tk.Label(foundation_frame, text="Building Corners:").pack()
+    corners_entry = tk.Entry(foundation_frame)
+    corners_entry.pack()
+    tk.Label(foundation_frame, text="Elevation Steps:").pack()
+    steps_entry = tk.Entry(foundation_frame)
+    steps_entry.pack()
+    tk.Label(foundation_frame, text="Number of Piers:").pack()
+    num_piers_entry = tk.Entry(foundation_frame)
+    num_piers_entry.pack()
+
+    # Wall Sections (up to 3)
+    wall_width_entries, wall_length_entries, wall_depth_entries, wall_tow_entries, wall_bof_entries = [], [], [], [], []
+    for i in range(3):
+        tk.Label(foundation_frame, text=f"Wall {i+1} Width (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        wall_width_entries.append(entry)
+        tk.Label(foundation_frame, text=f"Wall {i+1} Length (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        wall_length_entries.append(entry)
+        tk.Label(foundation_frame, text=f"Wall {i+1} Depth (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        wall_depth_entries.append(entry)
+        tk.Label(foundation_frame, text=f"Wall {i+1} T.O.W. (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        wall_tow_entries.append(entry)
+        tk.Label(foundation_frame, text=f"Wall {i+1} B.O.F. (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        wall_bof_entries.append(entry)
+
+    # Piers (up to 3)
+    pier_width_entries, pier_length_entries, pier_depth_entries = [], [], []
+    for i in range(3):
+        tk.Label(foundation_frame, text=f"Pier {i+1} Width (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        pier_width_entries.append(entry)
+        tk.Label(foundation_frame, text=f"Pier {i+1} Length (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        pier_length_entries.append(entry)
+        tk.Label(foundation_frame, text=f"Pier {i+1} Depth (ft):").pack()
+        entry = tk.Entry(foundation_frame)
+        entry.pack()
+        pier_depth_entries.append(entry)
 
     # Utilities Section
-    utilities_frame = tk.LabelFrame(content_frame, text="Utilities/Trenches")
-    utilities_frame.pack(fill=tk.BOTH, expand=True)
+    utilities_frame = tk.LabelFrame(scroll_frame, text="Utilities/Trenches")
+    utilities_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+    tk.Label(utilities_frame, text="Water Depth (ft):").pack()
+    water_depth_entry = tk.Entry(utilities_frame)
+    water_depth_entry.insert(0, "7.0")
+    water_depth_entry.pack()
+    tk.Label(utilities_frame, text="Sewer Depth (ft):").pack()
+    sewer_depth_entry = tk.Entry(utilities_frame)
+    sewer_depth_entry.insert(0, "5.0")
+    sewer_depth_entry.pack()
+    tk.Label(utilities_frame, text="Power Depth (ft):").pack()
+    power_depth_entry = tk.Entry(utilities_frame)
+    power_depth_entry.insert(0, "3.5")
+    power_depth_entry.pack()
     tk.Label(utilities_frame, text="Trench Linear Ft:").pack()
-    trench_linear_ft_entry = tk.Entry(utilities_frame)
-    trench_linear_ft_entry.pack()
-    # Add for depths, widths, perimeter_drain_length, num_cleanouts, etc.
+    trench_ft_entry = tk.Entry(utilities_frame)
+    trench_ft_entry.pack()
+    tk.Label(utilities_frame, text="Trench Width (ft):").pack()
+    trench_width_entry = tk.Entry(utilities_frame)
+    trench_width_entry.pack()
+    tk.Label(utilities_frame, text="Slope & Over Ex (ft):").pack()
+    slope_over_entry = tk.Entry(utilities_frame)
+    slope_over_entry.pack()
+    tk.Label(utilities_frame, text="Curtain Wall Depth (ft):").pack()
+    curtain_depth_entry = tk.Entry(utilities_frame)
+    curtain_depth_entry.pack()
+    tk.Label(utilities_frame, text="Curtain Wall Width (ft):").pack()
+    curtain_width_entry = tk.Entry(utilities_frame)
+    curtain_width_entry.pack()
+    tk.Label(utilities_frame, text="Curtain Wall Linear Ft:").pack()
+    curtain_ft_entry = tk.Entry(utilities_frame)
+    curtain_ft_entry.pack()
+    tk.Label(utilities_frame, text="Perimeter Drain Length (ft):").pack()
+    perimeter_length_entry = tk.Entry(utilities_frame)
+    perimeter_length_entry.pack()
+    tk.Label(utilities_frame, text="# Cleanouts:").pack()
+    cleanouts_entry = tk.Entry(utilities_frame)
+    cleanouts_entry.pack()
+    tk.Label(utilities_frame, text="# Elbows:").pack()
+    elbows_entry = tk.Entry(utilities_frame)
+    elbows_entry.pack()
+    tk.Label(utilities_frame, text="# Caps:").pack()
+    caps_entry = tk.Entry(utilities_frame)
+    caps_entry.pack()
 
-    # Slabs/Roads Section (similar)
+    # Slabs/Roads Section
+    slabs_frame = tk.LabelFrame(scroll_frame, text="Slabs/Roads")
+    slabs_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+    tk.Label(slabs_frame, text="Slab Thickness (ft):").pack()
+    slab_thickness_entry = tk.Entry(slabs_frame)
+    slab_thickness_entry.pack()
+    tk.Label(slabs_frame, text="Insulation Thickness (in):").pack()
+    insulation_entry = tk.Entry(slabs_frame)
+    insulation_entry.pack()
+    tk.Label(slabs_frame, text="Slab Length (ft):").pack()
+    slab_length_entry = tk.Entry(slabs_frame)
+    slab_length_entry.pack()
+    tk.Label(slabs_frame, text="Slab Width (ft):").pack()
+    slab_width_entry = tk.Entry(slabs_frame)
+    slab_width_entry.pack()
+    tk.Label(slabs_frame, text="Slab Fill Depth (ft):").pack()
+    slab_fill_entry = tk.Entry(slabs_frame)
+    slab_fill_entry.pack()
+    tk.Label(slabs_frame, text="Slab Exc. Depth (ft):").pack()
+    slab_exc_entry = tk.Entry(slabs_frame)
+    slab_exc_entry.pack()
+    tk.Label(slabs_frame, text="Road Length (ft):").pack()
+    road_length_entry = tk.Entry(slabs_frame)
+    road_length_entry.pack()
+    tk.Label(slabs_frame, text="Road Width (ft):").pack()
+    road_width_entry = tk.Entry(slabs_frame)
+    road_width_entry.pack()
+    tk.Label(slabs_frame, text="Road Thickness (ft):").pack()
+    road_thickness_entry = tk.Entry(slabs_frame)
+    road_thickness_entry.pack()
+    tk.Label(slabs_frame, text="Pitrun Depth (ft):").pack()
+    pitrun_entry = tk.Entry(slabs_frame)
+    pitrun_entry.pack()
+    tk.Label(slabs_frame, text="Roadbase Depth (ft):").pack()
+    roadbase_entry = tk.Entry(slabs_frame)
+    roadbase_entry.pack()
 
-    # Equipment/Employee Selection (as before)
-    # ...
+    # Other Section
+    other_frame = tk.LabelFrame(scroll_frame, text="Other")
+    other_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+    tk.Label(other_frame, text="Export Loads:").pack()
+    export_loads_entry = tk.Entry(other_frame)
+    export_loads_entry.pack()
+    tk.Label(other_frame, text="Haul Truck Hours:").pack()
+    haul_hours_entry = tk.Entry(other_frame)
+    haul_hours_entry.pack()
+    tk.Label(other_frame, text="Compactor Cost ($):").pack()
+    compactor_entry = tk.Entry(other_frame)
+    compactor_entry.insert(0, "450.0")
+    compactor_entry.pack()
+    tk.Label(other_frame, text="Fuel Cost ($):").pack()
+    fuel_entry = tk.Entry(other_frame)
+    fuel_entry.pack()
+    tk.Label(other_frame, text="Mobilization Time (hrs):").pack()
+    mobilization_entry = tk.Entry(other_frame)
+    mobilization_entry.pack()
+    tk.Label(other_frame, text="Slope Angle (deg):").pack()
+    slope_angle_entry = tk.Entry(other_frame)
+    slope_angle_entry.insert(0, "45.0")
+    slope_angle_entry.pack()
+    tk.Label(other_frame, text="Truck Capacity (cu yd):").pack()
+    truck_cap_entry = tk.Entry(other_frame)
+    truck_cap_entry.insert(0, "10.0")
+    truck_cap_entry.pack()
+    tk.Label(other_frame, text="Trucking Distance (mi):").pack()
+    trucking_dist_entry = tk.Entry(other_frame)
+    trucking_dist_entry.pack()
+    tk.Label(other_frame, text="Bedding Thickness (in):").pack()
+    bedding_entry = tk.Entry(other_frame)
+    bedding_entry.insert(0, "6.0")
+    bedding_entry.pack()
 
-    tk.Button(content_frame, text="Calculate & Submit", command=submit).pack()
+    # Employee and Equipment Selection
+    tk.Label(scroll_frame, text="Assign Employees:").pack()
+    emp_listbox = tk.Listbox(scroll_frame, selectmode="multiple")
+    for i, emp in enumerate(manager.employees):
+        emp_listbox.insert(tk.END, emp.name)
+    emp_listbox.pack()
 
+    tk.Label(scroll_frame, text="Assign Equipment:").pack()
+    eq_listbox = tk.Listbox(scroll_frame, selectmode="multiple")
+    for i, eq in enumerate(manager.equipment):
+        eq_listbox.insert(tk.END, eq.get('name', 'Unknown'))  # Assuming equipment is list of dicts with 'name'
+    eq_listbox.pack()
 
-def create_project_gui(manager, content_frame, nav_history):
-    clear_content(content_frame)
-    nav_history.append(lambda: create_project_gui(manager, content_frame, nav_history))
+    tk.Button(scroll_frame, text="Calculate & Submit", command=submit).pack(pady=10)
+    tk.Button(scroll_frame, text="Back", command=lambda: go_back(nav_history, content_frame)).pack()
 
-    def submit():
-        name = name_entry.get()
-        desc = desc_entry.get()
-        try:
-            hours = float(hours_entry.get())
-            start = start_entry.get()
-            proj = Project(name, desc, hours, start)
-            manager.projects.append(proj)
-            proj.generate_schedule(manager)
-            messagebox.showinfo("Success", f"Added: {proj} (Schedule generated)")
-            go_back(nav_history, content_frame)
-        except ValueError:
-            messagebox.showerror("Error", "Invalid input.")
-
-    tk.Label(content_frame, text="Create Project").pack()
-    tk.Label(content_frame, text="Name:").pack()
-    name_entry = tk.Entry(content_frame)
-    name_entry.pack()
-
-    tk.Label(content_frame, text="Description:").pack()
-    desc_entry = tk.Entry(content_frame)
-    desc_entry.pack()
-
-    tk.Label(content_frame, text="Estimated Hours:").pack()
-    hours_entry = tk.Entry(content_frame)
-    hours_entry.pack()
-
-    tk.Label(content_frame, text="Start Date (YYYY-MM-DD):").pack()
-    start_entry = tk.Entry(content_frame)
-    start_entry.pack()
-
-    tk.Button(content_frame, text="Submit", command=submit).pack()
 
 def add_work_item_gui(manager, content_frame, nav_history):
     clear_content(content_frame)
