@@ -976,8 +976,8 @@ truck_cap_entry.bind("<KeyRelease>", update_auto_fields)
 # Add more as needed, e.g., power_depth_entry.bind("<KeyRelease>", update_auto_fields)
 
 
-    tk.Button(scroll_frame, text="Calculate & Submit", command=submit).pack(pady=10)
-    tk.Button(scroll_frame, text="Back", command=lambda: go_back(nav_history, content_frame)).pack()
+tk.Button(scroll_frame, text="Calculate & Submit", command=submit).pack(pady=10)
+tk.Button(scroll_frame, text="Back", command=lambda: go_back(nav_history, content_frame)).pack()
 
 
 def add_work_item_gui(manager, content_frame, nav_history):
