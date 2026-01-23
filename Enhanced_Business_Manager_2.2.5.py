@@ -629,90 +629,90 @@ def submit():
                     'depth': float(wall_depth_entries[i].get()),
                     'tow': float(wall_tow_entries[i].get() or 0),  # Optional
                     'bof': float(wall_bof_entries[i].get() or 0)
-                    })
+                })
 
-            piers = []
-            for i in range(3):  # Up to 3 piers
-                if pier_width_entries[i].get() and pier_length_entries[i].get() and pier_depth_entries[i].get():
-                    piers.append({
-                        'width': float(pier_width_entries[i].get()),
-                        'length': float(pier_length_entries[i].get()),
-                        'depth': float(pier_depth_entries[i].get())
-                    })
+        piers = []
+        for i in range(3):  # Up to 3 piers
+            if pier_width_entries[i].get() and pier_length_entries[i].get() and pier_depth_entries[i].get():
+                piers.append({
+                    'width': float(pier_width_entries[i].get()),
+                    'length': float(pier_length_entries[i].get()),
+                    'depth': float(pier_depth_entries[i].get())
+                })
 
-            est = ExcavatingEstimate(
-                project_name=name_entry.get(),
-                footing_width=float(footing_width_entry.get() or 0),
-                footing_length=float(footing_length_entry.get() or 0),
-                footing_thickness=float(footing_thickness_entry.get() or 0),
-                wall_sections=wall_sections,
-                interior_exc_width=float(interior_width_entry.get() or 0),
-                interior_exc_length=float(interior_length_entry.get() or 0),
-                interior_exc_depth=float(interior_depth_entry.get() or 0),
-                piers=piers,
-                num_piers=int(num_piers_entry.get() or 0),
-                avg_spoils_distance=float(avg_spoils_entry.get() or 0),
-                building_corners=int(corners_entry.get() or 0),
-                elevation_steps=int(steps_entry.get() or 0),
-                water_depth=float(water_depth_entry.get() or 7.0),
-                sewer_depth=float(sewer_depth_entry.get() or 5.0),
-                power_depth=float(power_depth_entry.get() or 3.5),
-                trench_linear_ft=float(trench_ft_entry.get() or 0),
-                trench_width=float(trench_width_entry.get() or 0),
-                slope_over_ex=float(slope_over_entry.get() or 0),
-                curtain_wall_depth=float(curtain_depth_entry.get() or 0),
-                curtain_wall_width=float(curtain_width_entry.get() or 0),
-                curtain_wall_linear_ft=float(curtain_ft_entry.get() or 0),
-                perimeter_drain_length=float(perimeter_length_entry.get() or 0),
-                num_cleanouts=int(cleanouts_entry.get() or 0),
-                num_elbows=int(elbows_entry.get() or 0),
-                num_caps=int(caps_entry.get() or 0),
-                slab_thickness=float(slab_thickness_entry.get() or 0),
-                insulation_thickness=float(insulation_entry.get() or 0),
-                slab_length=float(slab_length_entry.get() or 0),
-                slab_width=float(slab_width_entry.get() or 0),
-                slab_fill_depth=float(slab_fill_entry.get() or 0),
-                slab_exc_depth=float(slab_exc_entry.get() or 0),
-                road_length=float(road_length_entry.get() or 0),
-                road_width=float(road_width_entry.get() or 0),
-                road_thickness=float(road_thickness_entry.get() or 0),
-                pitrun_depth=float(pitrun_entry.get() or 0),
-                roadbase_depth=float(roadbase_entry.get() or 0),
-                export_loads=int(export_loads_entry.get() or 0),
-                haul_truck_hours=float(haul_hours_entry.get() or 0),
-                compactor_cost=float(compactor_entry.get() or 450.0),
-                fuel_cost=float(fuel_entry.get() or 0),
-                mobilization_time=float(mobilization_entry.get() or 0),
-                slope_angle=float(slope_angle_entry.get() or 45.0),
-                truck_capacity=float(truck_cap_entry.get() or 10.0),
-                trucking_distance=float(trucking_dist_entry.get() or 0),
-                bedding_thickness=float(bedding_entry.get() or 6.0),
-                assigned_employees=[manager.employees[i] for i in emp_listbox.curselection()],
-                assigned_equipment=[manager.equipment[i] for i in eq_listbox.curselection()]
-            )
-            est.calculate_totals(manager)
-            vols = est.calculate_volumes()
-            times = est.calculate_times()
-            trucking = est.calculate_trucking()
-            bedding_utils = est.calculate_bedding_and_utilities()
+        est = ExcavatingEstimate(
+            project_name=name_entry.get(),
+            footing_width=float(footing_width_entry.get() or 0),
+            footing_length=float(footing_length_entry.get() or 0),
+            footing_thickness=float(footing_thickness_entry.get() or 0),
+            wall_sections=wall_sections,
+            interior_exc_width=float(interior_width_entry.get() or 0),
+            interior_exc_length=float(interior_length_entry.get() or 0),
+            interior_exc_depth=float(interior_depth_entry.get() or 0),
+            piers=piers,
+            num_piers=int(num_piers_entry.get() or 0),
+            avg_spoils_distance=float(avg_spoils_entry.get() or 0),
+            building_corners=int(corners_entry.get() or 0),
+            elevation_steps=int(steps_entry.get() or 0),
+            water_depth=float(water_depth_entry.get() or 7.0),
+            sewer_depth=float(sewer_depth_entry.get() or 5.0),
+            power_depth=float(power_depth_entry.get() or 3.5),
+            trench_linear_ft=float(trench_ft_entry.get() or 0),
+            trench_width=float(trench_width_entry.get() or 0),
+            slope_over_ex=float(slope_over_entry.get() or 0),
+            curtain_wall_depth=float(curtain_depth_entry.get() or 0),
+            curtain_wall_width=float(curtain_width_entry.get() or 0),
+            curtain_wall_linear_ft=float(curtain_ft_entry.get() or 0),
+            perimeter_drain_length=float(perimeter_length_entry.get() or 0),
+            num_cleanouts=int(cleanouts_entry.get() or 0),
+            num_elbows=int(elbows_entry.get() or 0),
+            num_caps=int(caps_entry.get() or 0),
+            slab_thickness=float(slab_thickness_entry.get() or 0),
+            insulation_thickness=float(insulation_entry.get() or 0),
+            slab_length=float(slab_length_entry.get() or 0),
+            slab_width=float(slab_width_entry.get() or 0),
+            slab_fill_depth=float(slab_fill_entry.get() or 0),
+            slab_exc_depth=float(slab_exc_entry.get() or 0),
+            road_length=float(road_length_entry.get() or 0),
+            road_width=float(road_width_entry.get() or 0),
+            road_thickness=float(road_thickness_entry.get() or 0),
+            pitrun_depth=float(pitrun_entry.get() or 0),
+            roadbase_depth=float(roadbase_entry.get() or 0),
+            export_loads=int(export_loads_entry.get() or 0),
+            haul_truck_hours=float(haul_hours_entry.get() or 0),
+            compactor_cost=float(compactor_entry.get() or 450.0),
+            fuel_cost=float(fuel_entry.get() or 0),
+            mobilization_time=float(mobilization_entry.get() or 0),
+            slope_angle=float(slope_angle_entry.get() or 45.0),
+            truck_capacity=float(truck_cap_entry.get() or 10.0),
+            trucking_distance=float(trucking_dist_entry.get() or 0),
+            bedding_thickness=float(bedding_entry.get() or 6.0),
+            assigned_employees=[manager.employees[i] for i in emp_listbox.curselection()],
+            assigned_equipment=[manager.equipment[i] for i in eq_listbox.curselection()]
+        )
+        est.calculate_totals(manager)
+        vols = est.calculate_volumes()
+        times = est.calculate_times()
+        trucking = est.calculate_trucking()
+        bedding_utils = est.calculate_bedding_and_utilities()
 
-            # Display results (mirroring Excel totals)
-            message = (
-                f"Estimate for {est.project_name}:\n\n"
-                f"**Volumes (cu yd)**:\nTotal Excavation: {vols['total_exc']:.2f}\nBackfill: {vols['backfill']:.2f}\nExport: {vols['export']:.2f}\n\n"
-                f"**Times**:\nHours: {times['hours']:.2f} (Days: {times['days']:.2f})\n\n"
-                f"**Trucking**:\nLoads: {trucking['loads']}\nTime: {trucking['time']:.2f} hrs\nCost: ${trucking['cost']:.2f}\n\n"
-                f"**Bedding & Utilities**:\nBedding Vol: {bedding_utils['bedding_vol']:.2f} cu yd\nGravel Tons: {bedding_utils['gravel_tons']:.2f}\n"
-                f"Perf Pipe: {est.utility_materials['perf_pipe_ft']:.2f} ft\nSolid Pipe: {est.utility_materials['solid_pipe_ft']:.2f} ft\n"
-                f"Cleanouts/Elbows/Caps: {est.utility_materials['cleanouts']}/{est.utility_materials['elbows']}/{est.utility_materials['caps']}\n\n"
-                f"**Totals**:\nEstimated Hours: {est.estimated_hours:.2f}\nTotal Cost: ${est.total_cost:.2f}\nTotal Rate: ${est.total_rate:.2f}"
-            )
-            messagebox.showinfo("Estimate Results", message)
-            manager.estimates.append(est)
-            manager.save_data()  # Save immediately
-            go_back(nav_history, content_frame)
-        except ValueError as e:
-            messagebox.showerror("Error", f"Invalid input: {str(e)}. Please check numeric fields.")
+        # Display results (mirroring Excel totals)
+        message = (
+            f"Estimate for {est.project_name}:\n\n"
+            f"**Volumes (cu yd)**:\nTotal Excavation: {vols['total_exc']:.2f}\nBackfill: {vols['backfill']:.2f}\nExport: {vols['export']:.2f}\n\n"
+            f"**Times**:\nHours: {times['hours']:.2f} (Days: {times['days']:.2f})\n\n"
+            f"**Trucking**:\nLoads: {trucking['loads']}\nTime: {trucking['time']:.2f} hrs\nCost: ${trucking['cost']:.2f}\n\n"
+            f"**Bedding & Utilities**:\nBedding Vol: {bedding_utils['bedding_vol']:.2f} cu yd\nGravel Tons: {bedding_utils['gravel_tons']:.2f}\n"
+            f"Perf Pipe: {est.utility_materials['perf_pipe_ft']:.2f} ft\nSolid Pipe: {est.utility_materials['solid_pipe_ft']:.2f} ft\n"
+            f"Cleanouts/Elbows/Caps: {est.utility_materials['cleanouts']}/{est.utility_materials['elbows']}/{est.utility_materials['caps']}\n\n"
+            f"**Totals**:\nEstimated Hours: {est.estimated_hours:.2f}\nTotal Cost: ${est.total_cost:.2f}\nTotal Rate: ${est.total_rate:.2f}"
+        )
+        messagebox.showinfo("Estimate Results", message)
+        manager.estimates.append(est)
+        manager.save_data()  # Save immediately
+        go_back(nav_history, content_frame)
+    except ValueError as e:
+        messagebox.showerror("Error", f"Invalid input: {str(e)}. Please check numeric fields.")
 
     # GUI Layout: Scrollable canvas for many fields
     canvas = tk.Canvas(content_frame)
