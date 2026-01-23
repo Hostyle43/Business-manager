@@ -28,6 +28,19 @@ class BusinessManagerApp:
         # Sidebar (The problematic area) - We'll fix this in Step 2 below
         self.sidebar_container = tk.Frame(self.main_container, width=200, bg='gray')  # Changed to self.main_container
         self.sidebar_container.pack(side='left', fill='y')
+        # Inside def main_gui(self):, after setting up self.viewer_pane
+
+        # Your sidebar menu (example based on history; replace with your code)
+        tk.Label(self.sidebar, text="--- MENU ---", bg='gray', fg='white').pack(pady=10)
+
+        tk.Button(self.sidebar, text="Excavating Estimator", command=self.load_excavating_estimator).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Employee Management", command=self.load_employee_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Work Library", command=self.load_work_library).pack(fill='x', padx=5, pady=2)
+        # Add the rest of your buttons here (e.g., for calendar, edit/delete, etc.)
+
+        # Force scrollbar update after adding buttons
+        self.root.after(200, lambda: self.sidebar_canvas.configure(scrollregion=self.sidebar_canvas.bbox("all")))
+
 
         self.sidebar_canvas = tk.Canvas(self.sidebar_container, width=200, bg='gray', highlightthickness=0)
         self.sidebar_scrollbar = tk.Scrollbar(self.sidebar_container, orient="vertical", command=self.sidebar_canvas.yview)
