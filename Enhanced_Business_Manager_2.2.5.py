@@ -286,6 +286,32 @@ class ExcavatingEstimate(Estimate):
         # Extended rehydration
         return cls(data['project_name'], **data)
 
+# Inside excavating_estimator_gui, after all entries are created...
+
+def update_auto_fields(*args):
+    try:
+        # Example 1: Auto-fill perimeter_drain_length ~ slab perimeter (approx)
+        slab_l = float(slab_length_entry.get() or 0)
+        slab_w = float(slab_width_entry.get() or 0)
+        perimeter_length_entry.delete(0, tk.END)
+        perimeter_length_entry.insert(0, str(2 * (slab_l + slab_w) * 1.1))  # 10% extra for corners
+        
+        # Example 2: Suggest export_loads based on truck_capacity (placeholder; full calc after submit)
+        truck_cap = float(truck_cap_entry.get() or 10.0)
+        # For now, a simple suggestion; integrate with volumes later
+        export_loads_entry.delete(0, tk.END)
+        export_loads_entry.insert(0, str(math.ceil(100 / truck_cap)))  # Dummy; replace with real vol estimate
+        
+        # Add more auto-fills here as we progress (e.g., trench_width = 2.0 if power_depth > 0)
+    except ValueError:
+        pass  # Ignore invalid inputs during typing
+
+# Bind to key releases for dynamic updates
+slab_length_entry.bind("<KeyRelease>", update_auto_fields)
+slab_width_entry.bind("<KeyRelease>", update_auto_fields)
+truck_cap_entry.bind("<KeyRelease>", update_auto_fields)
+# Bind more as needed, e.g., power_depth_entry.bind(...)
+
 
 # Project class (enhanced scheduling with availability and work codes)
 class Project:
