@@ -1,0 +1,856 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from tkinter import simpledialog
+import json
+import os
+from datetime import datetime
+from tkcalendar import Calendar  # Assuming you have this installed; used in employee features
+import math
+
+# --- Data Management ---
+
+DATA_FILE = "business_data.json"
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return {"employees": {}, "work_library": {}}
+    return {"employees": {}, "work_library": {}}
+
+def save_data(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+# --- Classes ---
+
+class Employee:
+    def __init__(self, name, role, contact):
+        self.name = name
+        self.role = role
+        self.contact = contact
+        self.availability = {}  # date_string: status
+
+# --- Excavating Estimator Classes ---
+
+class Estimate:
+    def __init__(self, project_name):
+        self.project_name = project_name
+        self.date = datetime.now().strftime("%Y-%m-%d")
+
+    def create_new_excavating_estimate(self):
+        try:
+            # Clear viewer pane (optional, but keeps it clean)
+            for widget in self.viewer_pane.winfo_children():
+                widget.destroy()
+
+            # Prompt for project name
+            project_name = simpledialog.askstring("New Estimate", "Enter project name:")
+            if not project_name:
+                messagebox.showwarning("Cancelled", "Estimate creation cancelled.")
+                return
+
+            # Create a new Toplevel window for inputs (modal form)
+            input_window = tk.Toplevel(self.root)  # Assuming self.root is your main Tk instance
+            input_window.title("New Excavating Estimate")
+            input_window.geometry("450x800")  # Larger default size to fit everything without immediate maximization
+            input_window.resizable(True, True)  # Allow resizing for better usability
+            input_window.grab_set()  # Make it modal (grabs focus)
+
+            tk.Label(input_window, text=f"Enter details for '{project_name}':").pack(pady=10)
+
+            # Frame for scrollable inputs
+            canvas = tk.Canvas(input_window)
+            scrollbar = tk.Scrollbar(input_window, orient="vertical", command=canvas.yview)
+            input_frame = tk.Frame(canvas)
+
+            input_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=input_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            # Complete list of input fields (matching ExcavatingEstimate attributes)
+            fields = [
+                ("Foundation excavation (cu yd)", "found_ex_vol", 0),
+                ("Subgrades (cu yd)", "sub_grade_vol", 0),
+                ("Interior slabs (sq ft)", "int_slab_area", 0),
+                ("Exterior slabs (sq ft)", "ext_slab_area", 0),
+                ("Perimeter drain (ft)", "pdrain_length", 0),
+                ("Water line (ft)", "water_line_length", 0),
+                ("Sewer line (ft)", "sewer_line_length", 0),
+                ("Electric line (ft)", "elec_line_length", 0),
+                ("Gas line (ft)", "gas_line_length", 0),
+                ("Tank excavations (cu yd)", "tank_ex_vol", 0),
+                ("Driveways/Parking (sq ft)", "drive_area", 0),
+                ("Topsoil and Seeding (sq ft)", "topsoil_area", 0),
+                ("Import materials (cu yd)", "materials_import", 0),
+                ("Export materials (cu yd)", "materials_export", 0),
+                ("Dump truck time (hrs)", "time_dump_truck", 0),
+                ("Equipment time (hrs)", "time_equipment", 0),
+                ("Labor time (hrs)", "time_labor", 0),
+                ("Operator time (hrs)", "time_operator", 0),
+                ("Supervisor time (hrs)", "time_super", 0),
+                ("Travel distances (miles)", "travel_distance", 0),
+                ("Total Project time (hrs)", "proj_time", 0),
+                # Add any more fields here if needed
+            ]
+
+            entries = {}
+            for label_text, attr, default in fields:
+                tk.Label(input_frame, text=label_text).pack(anchor="w", padx=10)
+                entry = tk.Entry(input_frame)
+                entry.insert(0, str(default))
+                entry.pack(fill='x', padx=10, pady=2)
+                entries[attr] = entry
+
+            # DEBUG: Print to confirm this section is reached
+            print("Adding styled Save button...")
+
+            # Save button: Placed INSIDE the input_frame, right under the fields, bigger and more visible
+            save_button = tk.Button(
+                input_frame, 
+                text="Save Estimate", 
+                command=lambda: save_estimate(entries, project_name, input_window),
+                bg="green",  # Eye-catching color
+                fg="white", 
+                font=("Arial", 14, "bold"),  # Larger, bold font
+                width=20,  # Wider button
+                height=2,  # Taller button
+                relief="raised"  # 3D effect for visibility
+            )
+            save_button.pack(pady=20, padx=10, anchor="center")  # Extra padding and centered
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+            print(f"Error in create_new_excavating_estimate: {str(e)}")  # Log to console
+
+    # Save function (unchanged)
+    def save_estimate(entries, project_name, input_window):
+        new_estimate = ExcavatingEstimate(project_name)
+
+        # Set attributes from entries
+        for attr, entry in entries.items():
+            try:
+                value = float(entry.get())  # Assuming numeric; adjust if needed
+            except ValueError:
+                value = 0
+            setattr(new_estimate, attr, value)
+
+        # Save to self.data
+        if "excavating_estimates" not in self.data:
+            self.data["excavating_estimates"] = {}
+        self.data["excavating_estimates"][project_name] = {"estimate": new_estimate.__dict__}
+        save_data(self.data)  # Your persistence function
+
+        messagebox.showinfo("Success", f"Created new estimate: {project_name}")
+        input_window.destroy()
+        self.load_excavating_estimator()  # Refresh the viewer   
+
+# --- GUI (Wrapped in Class to Fix 'self' Issues) ---
+
+class BusinessManagerApp:
+    def __init__(self):
+        self.data = load_data()
+        self.root = tk.Tk()
+        self.root.title("Hopper Company Manager Tool")
+        self.root.geometry("1200x800")
+        self.main_gui()  # Build the GUI
+        self.root.mainloop()
+
+    def main_gui(self):
+        # Main Container
+        self.main_container = tk.Frame(self.root)
+        self.main_container.pack(fill="both", expand=True)
+
+        # Sidebar (Fixed: Now uses 'self' properly, with enhanced scrolling)
+        self.sidebar_container = tk.Frame(self.main_container, width=200, bg='lightblue')
+        self.sidebar_container.pack(side='left', fill='y')
+
+        self.sidebar_canvas = tk.Canvas(self.sidebar_container, width=200, bg='gray', highlightthickness=0)
+        self.sidebar_scrollbar = tk.Scrollbar(self.sidebar_container, orient="vertical", command=self.sidebar_canvas.yview)
+        self.sidebar = tk.Frame(self.sidebar_canvas, bg='darkblue')
+
+        # Enhanced binding for dynamic content and scrolling
+        def update_scrollregion(event=None):
+            self.sidebar_canvas.configure(scrollregion=self.sidebar_canvas.bbox("all"))
+
+        self.sidebar.bind("<Configure>", update_scrollregion)
+        self.root.after(100, update_scrollregion)  # Force initial update
+
+        # Mouse wheel support
+        def on_mousewheel(event):
+            self.sidebar_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        self.root.bind_all("<MouseWheel>", on_mousewheel)
+
+        self.sidebar_canvas.create_window((0, 0), window=self.sidebar, anchor="nw")
+        self.sidebar_canvas.configure(yscrollcommand=self.sidebar_scrollbar.set)
+
+        self.sidebar_canvas.pack(side="left", fill="both", expand=True)
+        self.sidebar_scrollbar.pack(side="right", fill="y")
+
+        # Viewer Pane
+        self.viewer_pane = tk.Frame(self.main_container, bg="lightblue")
+        self.viewer_pane.pack(side="right", fill="both", expand=True)
+
+# Sidebar Buttons (based on your older file; add more here and fill in methods below)
+
+        tk.Label(self.sidebar, text="MAIN MENU", bg='blue', fg='white').pack(pady=10)
+        
+        tk.Button(self.sidebar, text="Excavating Estimator", bg='lightblue', fg='black', command=self.load_excavating_estimator).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Welding Estimator", bg='lightblue', fg='black', command=self.load_welding_estimator).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Project Management", bg='lightblue', fg='black', command=self.load_project_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Invoices", bg='lightblue', fg='black', command=self.load_invoices).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Employee Management", bg='lightblue', fg='black', command=self.load_employee_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Time Management", bg='lightblue', fg='black', command=self.load_time_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Work Library", bg='lightblue', fg='black', command=self.load_work_library).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Equipment Management", bg='lightblue', fg='black', command=self.load_equipment_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Schedule Management", bg='lightblue', fg='black', command=self.load_schedule_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Subcontractor Management", bg='lightblue', fg='black', command=self.load_subcontractor_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Vendor Management", bg='lightblue', fg='black', command=self.load_vendor_management).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Purchase Orders", bg='lightblue', fg='black', command=self.load_purchase_orders).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Accounting", bg='lightblue', fg='black', command=self.load_accounting).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Taxes", bg='lightblue', fg='black', command=self.load_taxes).pack(fill='x', padx=5, pady=2)
+        tk.Button(self.sidebar, text="Company documents", bg='lightblue', fg='black', command=self.load_company_documents).pack(fill='x', padx=5, pady=2)
+        
+        # Force scrollbar update after adding buttons
+        self.root.after(200, update_scrollregion)
+
+# Excavating Estimator
+
+    def load_excavating_estimator(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+
+        exc_est_frame = tk.Frame(self.viewer_pane)
+        exc_est_frame.pack(fill='both', expand=True)
+        tk.Label(exc_est_frame, text="Excavating Estimates").pack(pady=10)
+
+        tk.Button(
+            exc_est_frame,
+            text="Create New Estimate",
+            command=self.create_new_excavating_estimate,
+            bg="lightblue", fg="black", font=("Arial", 14)
+        ).pack(fill='x', padx=5, pady=5)
+
+        tk.Button(
+            exc_est_frame,
+            text="Load Existing Estimate",
+            command=self.load_existing_excavating_estimate,
+            bg="lightblue", fg="black", font=("Arial", 14)
+        ).pack(fill='x', padx=5, pady=5)
+
+        tk.Button(
+            exc_est_frame,
+            text="Delete Estimate",
+            command=self.delete_excavating_estimate,
+            bg="lightgray", fg="red", font=("Arial", 14)
+        ).pack(fill='x', padx=5, pady=5)
+
+        tk.Label(exc_est_frame, text="Estimate List:").pack(pady=5)
+        self.excavating_estimate_listbox = tk.Listbox(exc_est_frame)  # Attach to correct frame
+        self.excavating_estimate_listbox.pack(fill='both', expand=True)
+
+        # Populate dynamically
+        if "excavating_estimates" in self.data:
+            for est_name in self.data["excavating_estimates"]:
+                self.excavating_estimate_listbox.insert(tk.END, est_name)
+
+    def create_new_excavating_estimate(self):
+        # Clear viewer pane (optional, but matches your original)
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+
+        # Prompt for project name first
+        project_name = simpledialog.askstring("New Estimate", "Enter project name:")
+        if not project_name:
+            messagebox.showwarning("Cancelled", "Estimate creation cancelled.")
+            return
+
+        # Create a new Toplevel window for inputs (modal form)
+        input_window = tk.Toplevel(self.root)  # Assuming self.root is your main Tk instance
+        input_window.title("New Excavating Estimate")
+        input_window.geometry("400x600")
+
+        tk.Label(input_window, text=f"Enter details for '{project_name}':").pack(pady=10)
+
+        # Frame for scrollable inputs
+        canvas = tk.Canvas(input_window)
+        scrollbar = tk.Scrollbar(input_window, orient="vertical", command=canvas.yview)
+        input_frame = tk.Frame(canvas)
+
+        input_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=input_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Input fields (expand as needed)
+        fields = [
+            ("Foundation excavation (cu yd)", "found_ex_vol", 0),
+            ("Subgrades (cu yd)", "sub_grade_vol", 0),
+            ("Interior slabs (sq ft)", "int_slab_area", 0),
+            ("Exterior slabs (sq ft)", "ext_slab_area", 0),
+            ("Perimeter drain (ft)", "pdrain_length", 0),
+            ("Water line (ft)", "water_line_length", 0),
+            ("Sewer line (ft)", "sewer_line_length", 0),
+            ("Electric line (ft)", "elec_line_length", 0),
+            ("Gas line (ft)", "gas_line_length", 0),
+            ("Tank excavations (cu yd)", "tank_ex_vol", 0),
+            ("Driveways/Parking (sq ft)", "drive_area", 0),
+            ("Topsoil and Seeding (sq ft)", "topsoil_area", 0),
+            ("Import materials (cu yd)", "materials_import", 0),
+            ("Export materials (cu yd)", "materials_export", 0),
+            ("Dump truck time (hrs)", "time_dump_truck", 0),
+            ("Equipment time (hrs)", "time_equipment", 0),
+            ("Labor time (hrs)", "time_labor", 0),
+            ("Operator time (hrs)", "time_operator", 0),
+            ("Supervisor time (hrs)", "time_super", 0),
+            ("Travel distances (miles)", "travel_distance", 0),
+            ("Total Project time (hrs)", "proj_time", 0),
+            # Add more fields here...
+        ]
+
+        entries = {}
+        for label_text, attr, default in fields:
+            tk.Label(input_frame, text=label_text).pack(anchor="w", padx=10)
+            entry = tk.Entry(input_frame)
+            entry.insert(0, str(default))
+            entry.pack(fill='x', padx=10, pady=2)
+            entries[attr] = entry
+
+        def save_estimate():
+            # Create the ExcavatingEstimate instance
+            new_estimate = ExcavatingEstimate(project_name)  # Assumes it takes project_name in __init__
+
+            # Set attributes from entries (convert to float/int as needed)
+            for attr, entry in entries.items():
+                try:
+                    value = float(entry.get())  # Assuming all are numeric; adjust if needed
+                except ValueError:
+                    value = 0  # Fallback for invalid inputs
+                setattr(new_estimate, attr, value)
+
+            # Save to self.data
+            if "excavating_estimates" not in self.data:
+                self.data["excavating_estimates"] = {}
+            self.data["excavating_estimates"][project_name] = {"estimate": new_estimate.__dict__}  # Serialize to dict
+            save_data(self.data)
+
+            messagebox.showinfo("Success", f"Created new estimate: {project_name}")
+            input_window.destroy()
+            self.load_excavating_estimator()  # Refresh the viewer
+
+        tk.Button(input_window, text="Save", command=save_estimate).pack(pady=10)
+
+    def load_existing_excavating_estimate(self):
+        if "excavating_estimates" not in self.data or not self.data["excavating_estimates"]:
+            messagebox.showwarning("No Estimates", "No existing estimates found. Create one first!")
+            return
+
+        select_window = tk.Toplevel(self.root)
+        select_window.title("Load Estimate")
+        select_window.geometry("300x200")
+
+        tk.Label(select_window, text="Select an estimate to load:").pack(pady=10)
+
+        estimate_list = list(self.data["excavating_estimates"].keys())
+        listbox = tk.Listbox(select_window)
+        for est in estimate_list:
+            listbox.insert(tk.END, est)
+        listbox.pack(fill='both', expand=True, padx=10, pady=5)
+
+        def on_load():
+            selected = listbox.get(tk.ACTIVE)
+            if selected:
+                estimate_data = self.data["excavating_estimates"][selected]
+                self.current_estimate = ExcavatingEstimate(selected)  # Re-create instance
+
+                if "estimate" in estimate_data:
+                    est = estimate_data["estimate"]
+                    self.current_estimate.found_ex_vol = est.get("found_ex_vol", 0)
+                    self.current_estimate.sub_grade_vol = est.get("sub_grade_vol", 0)
+                    self.current_estimate.int_slab_area = est.get("int_slab_area", 0)
+                    self.current_estimate.ext_slab_area = est.get("ext_slab_area", 0)
+                    self.current_estimate.pdrain_length = est.get("pdrain_length", 0)
+                    self.current_estimate.water_line_length = est.get("water_line_length", 0)
+                    self.current_estimate.sewer_line_length = est.get("sewer_line_length", 0)
+                    self.current_estimate.elec_line_length = est.get("elec_line_length", 0)
+                    self.current_estimate.gas_line_length = est.get("gas_line_length", 0)
+                    self.current_estimate.tank_ex_vol = est.get("tank_ex_vol", 0)
+                    self.current_estimate.drive_area = est.get("drive_area", 0)
+                    self.current_estimate.topsoil_area = est.get("topsoil_area", 0)
+                    self.current_estimate.materials_import = est.get("materials_import", 0)
+                    self.current_estimate.materials_export = est.get("materials_export", 0)
+                    self.current_estimate.time_dump_truck = est.get("time_dump_truck", 0)
+                    self.current_estimate.time_equipment = est.get("time_equipment", 0)
+                    self.current_estimate.time_labor = est.get("time_labor", 0)
+                    self.current_estimate.time_operator = est.get("time_operator", 0)
+                    self.current_estimate.time_super = est.get("time_super", 0)
+                    self.current_estimate.travel_distance = est.get("travel_distance", 0)
+                    self.current_estimate.proj_time = est.get("proj_time", 0)
+                    # ... restore other fields ...
+
+                messagebox.showinfo("Loaded", f"Loaded estimate: {selected}")
+                select_window.destroy()
+                # Optional: Display loaded estimate in viewer (add code here if needed)
+
+            else:
+                messagebox.showwarning("No Selection", "Please select an estimate.")
+
+        tk.Button(select_window, text="Load", command=on_load).pack(pady=10)
+
+    def delete_excavating_estimate(self):
+        if "excavating_estimates" not in self.data or not self.data["excavating_estimates"]:
+            messagebox.showwarning("No Estimates", "No existing estimates found.")
+            return
+
+        select_window = tk.Toplevel(self.root)
+        select_window.title("Delete Estimate")
+        select_window.geometry("300x200")
+
+        tk.Label(select_window, text="Select an estimate to delete:").pack(pady=10)
+
+        estimate_list = list(self.data["excavating_estimates"].keys())
+        listbox = tk.Listbox(select_window)
+        for est in estimate_list:
+            listbox.insert(tk.END, est)
+        listbox.pack(fill='both', expand=True, padx=10, pady=5)
+
+        def on_delete():
+            selected = listbox.get(tk.ACTIVE)
+            if selected:
+                confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete '{selected}'?")
+                if confirm:
+                    del self.data["excavating_estimates"][selected]
+                    save_data(self.data)
+                    messagebox.showinfo("Deleted", f"Estimate '{selected}' deleted successfully.")
+                    select_window.destroy()
+                    self.load_excavating_estimator()  # Refresh the view
+            else:
+                messagebox.showwarning("No Selection", "Please select an estimate.")
+
+        tk.Button(select_window, text="Delete", command=on_delete).pack(pady=10)
+        # Add more fields (e.g., width, depth, slopes), buttons for calculate/save, linking logic (e.g., auto-populate perimeter drain)
+
+# Welding Estimator
+
+    def load_welding_estimator(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+        
+        # Example content (expand with your full inputs, calculations, auto-population)
+        est_frame = tk.Frame(self.viewer_pane)
+        est_frame.pack(fill='both', expand=True)
+        tk.Label(est_frame, text="Welding Estimator").pack(pady=10)
+        tk.Label(est_frame, text="Beam Length:").pack()
+        self.beam_length_entry = tk.Entry(est_frame)
+        self.beam_length_entry.pack()
+        tk.Label(est_frame, text="Number of Columns:").pack()
+        self.number_of_columns_entry = tk.Entry(est_frame)
+        self.number_of_columns_entry.pack()
+        # Add more fields (e.g., width, depth, slopes), buttons for calculate/save, linking logic (e.g., auto-populate perimeter drain)
+
+# Project Mangement
+
+    def load_project_management(self):
+        # Clear the viewer pane to start fresh
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+    
+        # Create a sub-frame as a "container" for buttons and other widgets
+        proj_frame = tk.Frame(self.viewer_pane, bg="blue", padx=10, pady=10)
+        proj_frame.pack(fill='both', expand=True)  # Fills the viewer pane
+    
+        # Add a title label for context
+        tk.Label(proj_frame, text="Project Management", bg="darkblue", fg="yellow", font=("Arial", 20, "bold")).pack(pady=10)
+    
+        # "Create New Project" button (your existing one)
+        tk.Button(
+            proj_frame,
+            text="Create New Project",
+            command=self.create_new_project,
+            bg="lightblue", fg="black", font=("Arial", 14)
+        ).pack(fill='x', padx=5, pady=5)
+    
+        # "Load Existing Project" button (your existing one)
+        tk.Button(
+            proj_frame,
+            text="Load Existing Project",
+            command=self.load_existing_project,
+            bg="lightblue", fg="black", font=("Arial", 14)
+        ).pack(fill='x', padx=5, pady=5)
+    
+        # "Delete Project" button 
+        tk.Button(
+            proj_frame,
+            text="Delete Project",
+            command=self.delete_project,
+            bg="lightgray", fg="red", font=("Arial", 14,)
+        ).pack(fill='x', padx=5, pady=5)
+
+        tk.Label(proj_frame, text="Project List:").pack(pady=5)
+        project_listbox = tk.Listbox(proj_frame)
+        project_listbox.pack(fill='both', expand=True)
+        # Populate dynamically if desired (example below)
+        if "projects" in self.data:
+            for proj in self.data["projects"]:
+                project_listbox.insert(tk.END, proj)
+    
+    
+    
+    def create_new_project(self):
+        project_name = tk.simpledialog.askstring("New Project", "Enter project name:")
+        if not project_name:
+            messagebox.showwarning("Cancelled", "Project creation cancelled.")
+            return
+    
+        # Ask if based on an existing estimate
+        use_existing = messagebox.askyesno("Use Existing Estimate?", "Is this project based on an existing estimate?")
+    
+        # Create a new estimate instance
+        new_estimate = ExcavatingEstimate(project_name)
+    
+        if use_existing:
+            # Check for existing projects
+            if "projects" not in self.data or not self.data["projects"]:
+                messagebox.showwarning("No Existing Projects", "No existing projects found. Switching to manual input.")
+                self._manual_input_dialog(new_estimate)
+            else:
+                # Dialog to select existing project
+                select_window = tk.Toplevel(self.root)
+                select_window.title("Select Existing Estimate")
+                select_window.geometry("300x200")
+            
+                tk.Label(select_window, text="Select an existing project to autofill from:").pack(pady=10)
+            
+                # Listbox of existing projects
+                project_list = list(self.data["projects"].keys())
+                listbox = tk.Listbox(select_window)
+                for proj in project_list:
+                    listbox.insert(tk.END, proj)
+                listbox.pack(fill='both', expand=True, padx=10, pady=5)
+            
+                def on_select():
+                    selected = listbox.get(tk.ACTIVE)
+                    if selected:
+                        existing_data = self.data["projects"][selected].get("estimate", {})
+                        # Autofill new estimate with existing data
+                        for key, value in existing_data.items():
+                            if hasattr(new_estimate, key):
+                                setattr(new_estimate, key, value)
+                        select_window.destroy()
+                    else:
+                        messagebox.showwarning("No Selection", "No project selected. Switching to manual input.")
+                        select_window.destroy()
+                        self._manual_input_dialog(new_estimate)
+            
+                tk.Button(select_window, text="Select and Autofill", command=on_select).pack(pady=10)
+                select_window.wait_window()  # Wait for dialog to close before proceeding
+        else:
+            # Manual input
+            self._manual_input_dialog(new_estimate)
+    
+        # Save the new project
+        if "projects" not in self.data:
+            self.data["projects"] = {}
+        self.data["projects"][project_name] = {"estimate": new_estimate.__dict__}  # Serialize class to dict
+        save_data(self.data)
+        messagebox.showinfo("Success", f"Created new project: {project_name}")
+        # Optional: Refresh the project management view
+        self.load_project_management()
+
+    # Helper method for manual input dialog (add this right after create_new_project)
+    def _manual_input_dialog(self, estimate):
+        # Create a dialog for manual input
+        input_window = tk.Toplevel(self.root)
+        input_window.title("Manual Project Data Input")
+        input_window.geometry("400x400")
+    
+        tk.Label(input_window, text="Enter project details below:").pack(pady=10)
+    
+        # Frame for scrollable inputs (in case of many fields)
+        canvas = tk.Canvas(input_window)
+        scrollbar = tk.Scrollbar(input_window, orient="vertical", command=canvas.yview)
+        input_frame = tk.Frame(canvas)
+    
+        input_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=input_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+    
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+    
+        # Example input fields (expand with all your ExcavatingEstimate attributes)
+        fields = [
+            ("Project Number:", "project_number", ""),
+            ("Customer Name:", "cust_name", ""),
+            ("Customer Address", "cust_addr", ""),
+            ("Project Status", "proj_stat", ""),
+            ("Estimated project time (hrs)", "est_time", 0),
+            ("Percent complete", "perc_comp", ""),
+            ("Assigned equipment", "assigned_equip", ""),
+            ("Assigned employees", "assigned-employ", ""),
+            ("Project Schedule", "proj-sched", ""), #insert interactive calendar
+            ("Estimated costs", "est-cost", ""),
+            ("Materials", "proj_material", ""), #insert interactive list
+            # will expand this more later
+        ]
+    
+        entries = {}
+        for label, attr, default in fields:
+            tk.Label(input_frame, text=label).pack(anchor="w", padx=10)
+            entry = tk.Entry(input_frame)
+            entry.insert(0, str(default))  # Pre-fill with default
+            entry.pack(fill='x', padx=10, pady=2)
+            entries[attr] = entry
+    
+        def on_save():
+            for attr, entry in entries.items():
+                value = entry.get()
+                try:
+                    # Convert to float for numeric fields (adjust for strings if needed)
+                    setattr(estimate, attr, float(value) if value else 0.0)
+                except ValueError:
+                    messagebox.showwarning("Invalid Input", f"Invalid value for {attr}. Using default.")
+                    setattr(estimate, attr, 0.0)
+            input_window.destroy()
+    
+        tk.Button(input_frame, text="Save Details", command=on_save).pack(pady=10)
+        input_window.wait_window()  # Wait for dialog to close
+
+
+
+    def load_existing_project(self):
+        # Check if there are any projects to load
+        if "projects" not in self.data or not self.data["projects"]:
+            messagebox.showwarning("No Projects", "No existing projects found. Create one first!")
+            return
+    
+        # Create a simple dialog to select a project
+        select_window = tk.Toplevel(self.root)
+        select_window.title("Load Project")
+        select_window.geometry("300x200")
+    
+        tk.Label(select_window, text="Select a project to load:").pack(pady=10)
+    
+        # Listbox to show projects
+        project_list = list(self.data["projects"].keys())
+        listbox = tk.Listbox(select_window)
+        for proj in project_list:
+            listbox.insert(tk.END, proj)
+        listbox.pack(fill='both', expand=True, padx=10, pady=5)
+    
+        def on_load():
+            selected = listbox.get(tk.ACTIVE)
+            if selected:
+                # Load the project data (example: restore ExcavatingEstimate)
+                project_data = self.data["projects"][selected]
+                self.current_estimate = ExcavatingEstimate(selected)  # Re-create class instance
+                # Restore fields from data (expand this as needed)
+                if "estimate" in project_data:
+                    est = project_data["estimate"]
+                    self.current_estimate.footing_length = est.get("footing_length", 0.0)
+                    # ... restore other fields ...
+            
+                messagebox.showinfo("Loaded", f"Loaded project: {selected}")
+                select_window.destroy()
+                # Optional: Switch to estimator view or update UI
+                self.load_excavating_estimator()  # E.g., auto-switch to show loaded data
+            else:
+                messagebox.showwarning("No Selection", "Please select a project.")
+    
+        tk.Button(select_window, text="Load", command=on_load).pack(pady=10)
+
+    def delete_project(self):
+        # Check if there are any projects to delete
+        if "projects" not in self.data or not self.data["projects"]:
+            messagebox.showwarning("No Projects", "No existing projects found.")
+            return
+    
+        # Create a simple dialog to select a project
+        select_window = tk.Toplevel(self.root)
+        select_window.title("Delete Project")
+        select_window.geometry("300x200")
+    
+        tk.Label(select_window, text="Select a project to delete:").pack(pady=10)
+    
+        # Listbox to show projects
+        project_list = list(self.data["projects"].keys())
+        listbox = tk.Listbox(select_window)
+        for proj in project_list:
+            listbox.insert(tk.END, proj)
+        listbox.pack(fill='both', expand=True, padx=10, pady=5)
+    
+        def on_delete():
+            selected = listbox.get(tk.ACTIVE)
+            if selected:
+                # Confirm deletion
+                confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete '{selected}'?")
+                if confirm:
+                    del self.data["projects"][selected]
+                    save_data(self.data)
+                    messagebox.showinfo("Deleted", f"Project '{selected}' deleted successfully.")
+                    select_window.destroy()
+                    # Optional: Refresh the project list in the viewer
+                    self.load_project_management()  # Reload the view to update
+            else:
+                messagebox.showwarning("No Selection", "Please select a project.")
+    
+        tk.Button(select_window, text="Delete", command=on_delete).pack(pady=10)
+        
+# Invoices
+
+    def load_invoices(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        inv_frame = tk.Frame(self.viewer_pane)
+        inv_frame.pack(fill='both', expand=True)
+        tk.Label(inv_frame, text="Invoice Mangement").pack(pady=10)
+        
+
+# Employee Manager
+
+    def load_employee_management(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+        
+        # Example content (expand with your employee list, edit/delete, calendar, etc.)
+        emp_frame = tk.Frame(self.viewer_pane)
+        emp_frame.pack(fill='both', expand=True)
+        tk.Label(emp_frame, text="Employee Management").pack(pady=10)
+        # Add your full logic here, e.g., list employees from self.data, buttons for edit/delete, tkcalendar for availability
+
+# Time Management
+    def load_time_management(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        time_frame = tk.Frame(self.viewer_pane)
+        time_frame.pack(fill='both', expand=True)
+        tk.Label(time_frame, text="Time Mangement").pack(pady=10)
+        
+
+
+# Work Library
+
+    def load_work_library(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+        
+        # Example content (expand with your editable codes/descriptions)
+        lib_frame = tk.Frame(self.viewer_pane)
+        lib_frame.pack(fill='both', expand=True)
+        tk.Label(lib_frame, text="Work Library").pack(pady=10)
+        # Add your full logic here, e.g., display and edit library from self.data
+
+# Equipment Manager
+
+    def load_equipment_management(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        equip_frame = tk.Frame(self.viewer_pane)
+        equip_frame.pack(fill='both', expand=True)
+        tk.Label(equip_frame, text="Equipment Mangement").pack(pady=10)
+        
+# Schedule Management
+
+    def load_schedule_management(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        sched_frame = tk.Frame(self.viewer_pane)
+        sched_frame.pack(fill='both', expand=True)
+        tk.Label(sched_frame, text="Schedule Mangement").pack(pady=10)
+        
+# Subcontractor Management
+
+    def load_subcontractor_management(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        subc_frame = tk.Frame(self.viewer_pane)
+        subc_frame.pack(fill='both', expand=True)
+        tk.Label(subc_frame, text="Subcontractor Mangement").pack(pady=10)
+        
+
+# Vendor Management
+
+    def load_vendor_management(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        vendor_frame = tk.Frame(self.viewer_pane)
+        vendor_frame.pack(fill='both', expand=True)
+        tk.Label(vendor_frame, text="Vendor Mangement").pack(pady=10)
+        
+
+# Purchase Orders
+
+    def load_purchase_orders(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        purch_frame = tk.Frame(self.viewer_pane)
+        purch_frame.pack(fill='both', expand=True)
+        tk.Label(purch_frame, text="Purchase Orders").pack(pady=10)
+        
+
+# Accounting
+
+    def load_accounting(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        account_frame = tk.Frame(self.viewer_pane)
+        account_frame.pack(fill='both', expand=True)
+        tk.Label(account_frame, text="Accounting").pack(pady=10)
+        
+
+# Taxes
+
+    def load_taxes(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        tax_frame = tk.Frame(self.viewer_pane)
+        tax_frame.pack(fill='both', expand=True)
+        tk.Label(tax_frame, text="Taxes").pack(pady=10)
+        
+
+# Company documents
+
+    def load_company_documents(self):
+        # Clear viewer pane
+        for widget in self.viewer_pane.winfo_children():
+            widget.destroy()
+            
+        comp_doc_frame = tk.Frame(self.viewer_pane)
+        comp_doc_frame.pack(fill='both', expand=True)
+        tk.Label(comp_doc_frame, text="Company documents").pack(pady=10)
+        
+
+        # Add more fields (e.g., width, depth, slopes), buttons for calculate/save, linking logic (e.g., auto-populate perimeter drain)
+
+if __name__ == "__main__":
+    app = BusinessManagerApp()
