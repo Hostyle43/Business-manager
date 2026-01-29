@@ -1,0 +1,875 @@
+import tkinter as tk
+from tkinter import messagebox
+import math
+import statistics
+import matplotlib.pyplot as plt
+import sys  # For debug printing
+import json  # For data persistence
+import os    # For file checks
+import numpy as np  # For array handling in plots
+
+def open_foundation_worksheet(main_entry, estimate_id="default"):
+    load_file = f"foundation_data_{estimate_id}.json"
+    print(f"Debug: Opening worksheet window for estimate ID {estimate_id} (file: {load_file})...")
+    worksheet_window = tk.Toplevel(root)
+    worksheet_window.title("Foundation Excavation Worksheet")
+    worksheet_window.geometry("800x600")
+    worksheet_window.resizable(True, True)
+    worksheet_window.grab_set()
+
+    print("Debug: Setting up canvas and scrollbar...")
+    # Create a Canvas for scrolling
+    canvas = tk.Canvas(worksheet_window)
+    scrollbar = tk.Scrollbar(worksheet_window, orient="vertical", command=canvas.yview)
+    scrollbar.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    # Inner frame for content (everything packs into this)
+    ws_frame = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=ws_frame, anchor="nw")
+
+    # Bind mouse wheel scrolling (cross-platform)
+    def on_mouse_wheel(event):
+        if event.num == 5 or event.delta == -120 or event.delta == -1:
+            canvas.yview_scroll(1, "units")
+        elif event.num == 4 or event.delta == 120 or event.delta == 1:
+            canvas.yview_scroll(-1, "units")
+
+    worksheet_window.bind("<MouseWheel>", on_mouse_wheel)  # Windows/Mac
+    worksheet_window.bind("<Button-4>", on_mouse_wheel)    # Linux up
+    worksheet_window.bind("<Button-5>", on_mouse_wheel)    # Linux down
+
+    # Update scroll region when content changes
+    def update_scroll_region(event=None):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        print("Debug: Scroll region updated.")
+
+    ws_frame.bind("<Configure>", update_scroll_region)
+
+    print("Debug: Adding global settings frame...")
+    # Global Settings
+    global_frame = tk.LabelFrame(ws_frame, text="Globals (ft)", font=("Arial", 10, "bold"))
+    global_frame.pack(fill="x", pady=5)
+    global_frame.columnconfigure(1, weight=1)
+
+    tk.Label(global_frame, text="Inside Over-Ex:").grid(row=0, column=0, sticky="w", padx=5)
+    over_in_entry = tk.Entry(global_frame, width=10)
+    over_in_entry.insert(0, "3.5")
+    over_in_entry.grid(row=0, column=1, padx=5)
+
+    tk.Label(global_frame, text="Outside Over-Ex:").grid(row=0, column=2, sticky="w", padx=5)
+    over_out_entry = tk.Entry(global_frame, width=10)
+    over_out_entry.insert(0, "5.5")
+    over_out_entry.grid(row=0, column=3, padx=5)
+
+    tk.Label(global_frame, text="Topsoil Strip Depth:").grid(row=1, column=0, sticky="w", padx=5)
+    topsoil_entry = tk.Entry(global_frame, width=10)
+    topsoil_entry.insert(0, "0.5")
+    topsoil_entry.grid(row=1, column=1, padx=5)
+
+    autoclose_var = tk.BooleanVar(value=True)
+    tk.Checkbutton(global_frame, text="Autoclose sections on Calculate", variable=autoclose_var).grid(row=1, column=2, columnspan=2, sticky="w", padx=5)
+
+    print("Debug: Adding sections frame...")
+    # Sections Section
+    sections_frame = tk.LabelFrame(ws_frame, text="Sections (e.g., Basement, Garage)", font=("Arial", 10, "bold"))
+    sections_frame.pack(fill="both", expand=True, pady=5)
+
+    sections = []
+
+    def add_section(name="", type_="Full", tos="100", int_depth="8", notes="", walls=[]):
+        sec_num = len(sections) + 1
+        sec_frame = tk.LabelFrame(sections_frame, text=f"Section {sec_num}")
+        sec_frame.pack(fill="x", pady=5)
+
+        set_frame = tk.Frame(sec_frame)
+        set_frame.pack(fill="x")
+
+        tk.Label(set_frame, text="Name:").pack(side="left", padx=5)
+        name_entry = tk.Entry(set_frame, width=15)
+        name_entry.insert(0, name or f"Section {sec_num}")
+        name_entry.pack(side="left", padx=5)
+
+        tk.Label(set_frame, text="Type:").pack(side="left", padx=5)
+        type_var = tk.StringVar(value=type_)
+        tk.OptionMenu(set_frame, type_var, "Full", "Partial").pack(side="left", padx=5)
+
+        tk.Label(set_frame, text="T.O.S:").pack(side="left", padx=5)
+        tos_entry = tk.Entry(set_frame, width=8)
+        tos_entry.insert(0, tos)
+        tos_entry.pack(side="left", padx=5)
+
+        tk.Label(set_frame, text="Int. Target Depth:").pack(side="left", padx=5)
+        int_depth_entry = tk.Entry(set_frame, width=8)
+        int_depth_entry.insert(0, int_depth)
+        int_depth_entry.pack(side="left", padx=5)
+
+        notes_text = tk.Text(sec_frame, height=2, width=50)
+        notes_text.pack(fill="x", pady=2)
+        notes_text.insert("1.0", notes or "Notes (e.g., shared wall with garage):")
+
+        walls_subframe = tk.Frame(sec_frame)
+        walls_subframe.pack(fill="x", pady=5)
+
+        wall_entries = []
+        corner_entries = []
+        corners = []
+        corner_id_counter = 1
+
+        def add_wall(to_copy=None, insert_corner_id=None, offset_ft=0, load_data=None):
+            nonlocal corner_id_counter
+            wall_num = len(wall_entries) + 1
+            wall_subframe = tk.Frame(walls_subframe)
+            wall_subframe.pack(fill="x", pady=2)
+
+            wall_label = f"Wall {wall_num}:"
+            if insert_corner_id:
+                wall_label += f" (Insert after {insert_corner_id} + {offset_ft} ft)"
+            tk.Label(wall_subframe, text=wall_label).grid(row=0, column=0, columnspan=8, sticky="w", pady=2)
+
+            tk.Label(wall_subframe, text="Length (ft):").grid(row=1, column=0, sticky="w", padx=5)
+            length_e = tk.Entry(wall_subframe, width=8)
+            length_e.grid(row=1, column=1, padx=2)
+
+            tk.Label(wall_subframe, text="Dir (deg):").grid(row=1, column=2, sticky="w", padx=5)
+            dir_e = tk.Entry(wall_subframe, width=8)
+            dir_e.grid(row=1, column=3, padx=2)
+
+            tk.Label(wall_subframe, text="T.O.W:").grid(row=1, column=4, sticky="w", padx=5)
+            tow_e = tk.Entry(wall_subframe, width=8)
+            tow_e.grid(row=1, column=5, padx=2)
+
+            tk.Label(wall_subframe, text="B.O.W:").grid(row=2, column=0, sticky="w", padx=5)
+            bow_e = tk.Entry(wall_subframe, width=8)
+            bow_e.grid(row=2, column=1, padx=2)
+
+            tk.Label(wall_subframe, text="B.O.F:").grid(row=2, column=2, sticky="w", padx=5)
+            bof_e = tk.Entry(wall_subframe, width=8)
+            bof_e.grid(row=2, column=3, padx=2)
+
+            tk.Label(wall_subframe, text="Footer W (ft):").grid(row=2, column=4, sticky="w", padx=5)
+            footer_e = tk.Entry(wall_subframe, width=8)
+            footer_e.grid(row=2, column=5, padx=2)
+
+            corner_id = f"C{corner_id_counter}"
+            tk.Label(wall_subframe, text=f"{corner_id} Elev:").grid(row=3, column=0, sticky="w", padx=5)
+            corner_e = tk.Entry(wall_subframe, width=8)
+            corner_e.grid(row=3, column=1, padx=2, columnspan=6, sticky="w")
+
+            remove_btn = tk.Button(wall_subframe, text="Remove", command=lambda wf=wall_subframe: remove_wall(wf))
+            remove_btn.grid(row=3, column=7, padx=5)
+
+            if load_data:
+                length_e.insert(0, load_data.get('length', ''))
+                dir_e.insert(0, load_data.get('dir', ''))
+                tow_e.insert(0, load_data.get('tow', '100'))
+                bow_e.insert(0, load_data.get('bow', '99'))
+                bof_e.insert(0, load_data.get('bof', '95.5'))
+                footer_e.insert(0, load_data.get('footer', '1.5'))
+                corner_e.insert(0, load_data.get('corner', '101'))
+
+            elif to_copy:
+                length_e.insert(0, to_copy['length'].get())
+                dir_e.insert(0, to_copy['dir'].get())
+                tow_e.insert(0, to_copy['tow'].get())
+                bow_e.insert(0, to_copy['bow'].get())
+                bof_e.insert(0, to_copy['bof'].get())
+                footer_e.insert(0, to_copy['footer'].get())
+                corner_e.insert(0, to_copy['corner'].get())
+
+            else:
+                tow_e.insert(0, "100")
+                bow_e.insert(0, "99")
+                bof_e.insert(0, "95.5")
+                footer_e.insert(0, "1.5")
+                corner_e.insert(0, "101")
+
+            wall_entries.append({'frame': wall_subframe, 'length': length_e, 'dir': dir_e, 'tow': tow_e, 'bow': bow_e, 'bof': bof_e, 'footer': footer_e, 'corner': corner_e, 'corner_id': corner_id})
+            corner_entries.append(corner_e)
+            corners.append({'id': corner_id, 'x': 0.0, 'y': 0.0, 'existing_elev': float(corner_e.get() or 0), 'target_elev': 0.0})
+
+            corner_id_counter += 1
+            try:
+                update_results(light=True)
+            except Exception as e:
+                print(f"Debug: Error in add_wall update: {e}")
+
+        def remove_wall(wall_frame):
+            for i, we in enumerate(wall_entries):
+                if we['frame'] == wall_frame:
+                    wall_entries.pop(i)
+                    corner_entries.pop(i)
+                    corners.pop(i)
+                    wall_frame.destroy()
+                    break
+            try:
+                update_results(light=True)
+            except Exception as e:
+                print(f"Debug: Error in remove_wall update: {e}")
+
+        def duplicate_wall():
+            if wall_entries:
+                add_wall(to_copy=wall_entries[-1])
+
+        def insert_wall_dialog():
+            if len(corners) < 2:
+                messagebox.showwarning("Insert", "Need at least 2 corners to insert.")
+                return
+            dialog = tk.Toplevel(worksheet_window)
+            dialog.title("Insert Wall")
+            dialog.geometry("300x150")
+            tk.Label(dialog, text="Corner ID to insert after:").pack(pady=5)
+            id_var = tk.StringVar()
+            id_menu = tk.OptionMenu(dialog, id_var, *[c['id'] for c in corners])
+            id_menu.pack(pady=5)
+            tk.Label(dialog, text="Offset from corner (ft):").pack(pady=5)
+            offset_e = tk.Entry(dialog, width=10)
+            offset_e.insert(0, "0")
+            offset_e.pack(pady=5)
+            def do_insert():
+                selected_id = id_var.get()
+                offset = float(offset_e.get() or 0)
+                add_wall(insert_corner_id=selected_id, offset_ft=offset)
+                dialog.destroy()
+            tk.Button(dialog, text="Insert", command=do_insert).pack(pady=10)
+
+        def close_section():
+            if not wall_entries:
+                messagebox.showinfo("Close Section", "Add walls first.")
+                return
+            # Calculate current position
+            current_x, current_y = 0.0, 0.0
+            for we in wall_entries:
+                length = float(we['length'].get() or 0)
+                if length == 0:
+                    continue  # Skip blanks
+                direction = float(we['dir'].get() or 0)
+                rad = math.radians(direction)
+                current_x += length * math.cos(rad)
+                current_y += length * math.sin(rad)
+            close_error = math.sqrt(current_x**2 + current_y**2)
+            if close_error <= 2.0:
+                messagebox.showinfo("Close Section", "Section already closed.")
+                return
+            # Add closing wall
+            closing_length = close_error
+            closing_dir = math.degrees(math.atan2(-current_y, -current_x))
+            add_wall()
+            last_we = wall_entries[-1]
+            last_we['length'].insert(0, f"{closing_length:.1f}")
+            last_we['dir'].insert(0, f"{closing_dir:.1f}")
+            messagebox.showinfo("Close Section", f"Added closing wall: Length {closing_length:.1f} ft, Dir {closing_dir:.1f}°")
+            update_results()
+
+        def calculate_section():
+            try:
+                update_results()
+                messagebox.showinfo("Calculate Section", f"Section {sec_num} finalized and calculated.")
+            except Exception as e:
+                messagebox.showerror("Calc Error", f"Error calculating section: {str(e)}")
+
+        wall_btn_frame = tk.Frame(sec_frame)
+        wall_btn_frame.pack(fill="x", pady=2)
+        tk.Button(wall_btn_frame, text="Add Wall", command=add_wall, bg="lightgreen").pack(side="left", padx=5)
+        tk.Button(wall_btn_frame, text="Duplicate Last", command=duplicate_wall, bg="yellow").pack(side="left", padx=5)
+        tk.Button(wall_btn_frame, text="Insert Wall", command=insert_wall_dialog, bg="orange").pack(side="left", padx=5)
+
+        sec_btn_frame = tk.Frame(sec_frame)
+        sec_btn_frame.pack(side="right", pady=5)
+        tk.Button(sec_btn_frame, text="Calculate Section", command=calculate_section, bg="cyan").pack(side="left", padx=5)
+        tk.Button(sec_btn_frame, text="Close Section", command=close_section, bg="blue", fg="white").pack(side="left", padx=5)
+        tk.Button(sec_btn_frame, text="Remove Section", command=lambda sf=sec_frame: remove_section(sf), bg="red", fg="white").pack(side="left", padx=5)
+
+        # Load walls if provided
+        for wall_data in walls:
+            add_wall(load_data=wall_data)
+        if not wall_entries:
+            add_wall()  # Initial wall if none loaded
+
+        sections.append({
+            'name_entry': name_entry, 'frame': sec_frame, 'type_var': type_var, 'tos_entry': tos_entry,
+            'int_depth_entry': int_depth_entry, 'notes': notes_text, 'wall_entries': wall_entries,
+            'corner_entries': corner_entries, 'corners': corners
+        })
+        try:
+            update_results(light=True)
+        except Exception as e:
+            print(f"Debug: Error in add_section update: {e}")
+
+    def remove_section(sec_frame):
+        for i, sec in enumerate(sections):
+            if sec['frame'] == sec_frame:
+                sections.pop(i)
+                sec_frame.destroy()
+                break
+        try:
+            update_results(light=True)
+        except Exception as e:
+            print(f"Debug: Error in remove_section update: {e}")
+
+    add_sec_btn_frame = tk.Frame(sections_frame)
+    add_sec_btn_frame.pack(fill="x", pady=5)
+    tk.Button(add_sec_btn_frame, text="Add Section", command=lambda: add_section(), bg="lightblue").pack(side="left")
+
+    # Load existing data if file exists for this estimate ID
+    if os.path.exists(load_file):
+        try:
+            with open(load_file, 'r') as f:
+                saved_data = json.load(f)
+            over_in_entry.delete(0, tk.END)
+            over_in_entry.insert(0, saved_data.get('globals', {}).get('over_in', "3.5"))
+            over_out_entry.delete(0, tk.END)
+            over_out_entry.insert(0, saved_data.get('globals', {}).get('over_out', "5.5"))
+            topsoil_entry.delete(0, tk.END)
+            topsoil_entry.insert(0, saved_data.get('globals', {}).get('topsoil', "0.5"))
+            autoclose_var.set(saved_data.get('globals', {}).get('autoclose', True))
+
+            for sec_data in saved_data.get('sections', []):
+                add_section(
+                    name=sec_data.get('name', ""),
+                    type_=sec_data.get('type', "Full"),
+                    tos=sec_data.get('tos', "100"),
+                    int_depth=sec_data.get('int_depth', "8"),
+                    notes=sec_data.get('notes', ""),
+                    walls=sec_data.get('walls', [])
+                )
+            print("Debug: Loaded existing data from file.")
+            messagebox.showinfo("Loaded", f"Existing worksheet for estimate {estimate_id} loaded for editing.")
+        except Exception as e:
+            print(f"Debug: Error loading data: {e}")
+            messagebox.showwarning("Load Error", "Could not load existing data. Starting fresh.")
+            add_section()  # Initial section if load fails
+    else:
+        add_section()  # Initial section for new estimate
+
+    print("Debug: Creating results frame...")
+    results_frame = tk.LabelFrame(ws_frame, text="Results", font=("Arial", 10, "bold"))
+    results_frame.pack(fill="x", pady=5)
+
+    def offset_polygon(points, distance):
+        def line_offset(p1, p2, d):
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            L = math.sqrt(dx**2 + dy**2)
+            if L == 0:
+                return None
+            ux = dy / L * d
+            uy = -dx / L * d
+            return (p1[0] + ux, p1[1] + uy), (p2[0] + ux, p2[1] + uy)
+
+        def line_intersection(line1, line2):
+            (x1, y1), (x2, y2) = line1
+            (x3, y3), (x4, y4) = line2
+            den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+            if abs(den) < 1e-6:
+                return None
+            t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den
+            return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+        n = len(points)
+        offset_lines = []
+        for i in range(n):
+            p1 = points[i]
+            p2 = points[(i + 1) % n]
+            ol = line_offset(p1, p2, distance)
+            if ol:
+                offset_lines.append(ol)
+
+        new_points = []
+        for i in range(n):
+            line1 = offset_lines[i]
+            line2 = offset_lines[(i + 1) % n]
+            inter = line_intersection(line1, line2)
+            if inter:
+                new_points.append(inter)
+        return new_points
+
+    def update_results(light=False):
+        print("Debug: Updating results (light=" + str(light) + ")...")
+        for widget in results_frame.winfo_children():
+            widget.destroy()
+
+        try:
+            over_in = float(over_in_entry.get() or 0)
+            over_out = float(over_out_entry.get() or 0)
+            topsoil_depth = float(topsoil_entry.get() or 0)
+            autoclose = autoclose_var.get()
+
+            total_vol = 0.0
+            total_sloped_extra = 0.0
+            total_fill = 0.0
+            total_length = 0.0
+            avg_buried_h = 0.0
+            num_walls = 0
+
+            has_valid_section = False
+
+            for sec in sections:
+                name = sec['name_entry'].get()
+                sec_type = sec['type_var'].get()
+                tos = float(sec['tos_entry'].get() or 100)
+                int_target_depth = float(sec['int_depth_entry'].get() or 0)
+
+                wall_entries = sec['wall_entries']
+                if len(wall_entries) < 3:
+                    if not light:
+                        tk.Label(results_frame, text=f"{name}: N/A (Need >=3 walls)").pack(anchor="w")
+                    continue
+
+                has_valid_section = True
+
+                sec_length = 0.0
+                sec_trench_vol = 0.0
+                sec_inside_vol = 0.0
+                sec_sloped_extra = 0.0
+                sec_fill = 0.0
+                current_x, current_y = 0.0, 0.0
+                buried_hs = []
+                effective_walls = 0
+
+                # Check for zero-length walls and collect effective ones
+                for i, we in enumerate(wall_entries):
+                    length = float(we['length'].get() or 0)
+                    if length == 0:
+                        if not light:
+                            tk.Label(results_frame, text=f"Warning: Skipped zero-length Wall {i+1} in {name}.", fg="orange").pack(anchor="w")
+                        continue
+                    effective_walls += 1
+
+                if effective_walls < 3:
+                    if not light:
+                        tk.Label(results_frame, text=f"{name}: N/A (Need >=3 effective walls)").pack(anchor="w")
+                    continue
+
+                # Update corners (starting with origin C1 if not present)
+                if sec['corners']:
+                    sec['corners'][0]['x'] = 0.0
+                    sec['corners'][0]['y'] = 0.0
+
+                effective_idx = 0
+                for i, we in enumerate(wall_entries):
+                    length = float(we['length'].get() or 0)
+                    if length == 0:
+                        continue  # Skip in position/volume calcs
+                    direction = float(we['dir'].get() or 0)
+                    tow = float(we['tow'].get() or 100)
+                    bow = float(we['bow'].get() or 100)
+                    bof = float(we['bof'].get() or 100)
+                    footer = float(we['footer'].get() or 0)
+
+                    rad = math.radians(direction)
+                    current_x += length * math.cos(rad)
+                    current_y += length * math.sin(rad)
+
+                    if effective_idx + 1 < effective_walls:
+                        sec['corners'][effective_idx + 1]['x'] = current_x
+                        sec['corners'][effective_idx + 1]['y'] = current_y
+                        sec['corners'][effective_idx + 1]['existing_elev'] = float(we['corner'].get() or 0)
+                        next_i = (i + 1) % len(wall_entries)
+                        while next_i != i and float(wall_entries[next_i]['length'].get() or 0) == 0:
+                            next_i = (next_i + 1) % len(wall_entries)
+                        next_bof = float(wall_entries[next_i]['bof'].get() or 100)
+                        sec['corners'][effective_idx + 1]['target_elev'] = statistics.mean([bof, next_bof]) if int_target_depth == 0 else (tos - int_target_depth)
+
+                    sec_length += length
+                    trench_depth = tow - bof
+
+                    trench_vol = length * (footer + over_in) * trench_depth
+                    if trench_depth > 4:
+                        slope_h = trench_depth - 4
+                        slope_vol = length * (slope_h ** 2 / 2)
+                        trench_vol += length * over_out * trench_depth + slope_vol
+                        sec_sloped_extra += slope_vol
+                    else:
+                        trench_vol += length * over_out * trench_depth
+                    sec_trench_vol += trench_vol
+
+                    buried_h = tow - bow - 0.5
+                    buried_hs.append(max(0, buried_h))
+                    effective_idx += 1
+
+                close_error = math.sqrt(current_x**2 + current_y**2)
+                if close_error > 2.0:
+                    if autoclose and not light:
+                        if messagebox.askyesno("Autoclose", f"{name} is open (error: {close_error:.1f} ft). Adjust last wall to close?"):
+                            # Autoclose by adjusting last wall
+                            last_we_idx = len(wall_entries) - 1
+                            while last_we_idx >= 0 and float(wall_entries[last_we_idx]['length'].get() or 0) == 0:
+                                last_we_idx -= 1
+                            if last_we_idx >= 0:
+                                last_we = wall_entries[last_we_idx]
+                                last_length = float(last_we['length'].get() or 0)
+                                last_dir = float(last_we['dir'].get() or 0)
+                                last_rad = math.radians(last_dir)
+                                adjusted_x = current_x - last_length * math.cos(last_rad)
+                                adjusted_y = current_y - last_length * math.sin(last_rad)
+                                new_length = math.sqrt(adjusted_x**2 + adjusted_y**2)
+                                new_dir = math.degrees(math.atan2(adjusted_y, adjusted_x))
+                                last_we['length'].delete(0, tk.END)
+                                last_we['length'].insert(0, f"{new_length:.1f}")
+                                last_we['dir'].delete(0, tk.END)
+                                last_we['dir'].insert(0, f"{new_dir:.1f}")
+                                tk.Label(results_frame, text=f"Autoclosed {name} by adjusting last wall.", fg="green").pack(anchor="w")
+                                # Recalculate positions after adjust
+                                current_x, current_y = 0.0, 0.0
+                                for we in wall_entries:
+                                    length = float(we['length'].get() or 0)
+                                    if length == 0: continue
+                                    direction = float(we['dir'].get() or 0)
+                                    rad = math.radians(direction)
+                                    current_x += length * math.cos(rad)
+                                    current_y += length * math.sin(rad)
+                                close_error = math.sqrt(current_x**2 + current_y**2)
+                    elif not light:
+                        tk.Label(results_frame, text=f"{name}: Warning - Not closed (error: {close_error:.1f} ft). Enable autoclose or use Close Section.", fg="red").pack(anchor="w")
+                        continue
+
+                area = 0.0
+                coords = [(c['x'], c['y']) for c in sec['corners'][:effective_walls]]  # Only effective corners
+                n = len(coords)
+                for i in range(n):
+                    x1, y1 = coords[i]
+                    x2, y2 = coords[(i + 1) % n]
+                    area += x1 * y2 - x2 * y1
+                area = abs(area) / 2.0
+
+                corner_targets = [c['target_elev'] for c in sec['corners'][:n]]
+                corner_elevs = [c['existing_elev'] for c in sec['corners'][:n]]
+                cut_depths = [max(0, elev - target) for elev, target in zip(corner_elevs, corner_targets)]
+                fill_depths = [max(0, target - elev) for elev, target in zip(corner_elevs, corner_targets)]
+
+                avg_cut_depth = statistics.mean(cut_depths)
+                avg_fill_depth = statistics.mean(fill_depths)
+                slope_var = max(corner_targets) - min(corner_targets)
+
+                inside_vol = 0.0
+                center_x = sum(c['x'] for c in sec['corners'][:n]) / n
+                center_y = sum(c['y'] for c in sec['corners'][:n]) / n
+                center_depth = statistics.mean(cut_depths)
+                for i in range(n):
+                    tri_coords = [(center_x, center_y), coords[i], coords[(i + 1) % n]]
+                    tri_area = abs((tri_coords[0][0]*(tri_coords[1][1]-tri_coords[2][1]) + tri_coords[1][0]*(tri_coords[2][1]-tri_coords[0][1]) + tri_coords[2][0]*(tri_coords[0][1]-tri_coords[1][1])) / 2)
+                    tri_depth = statistics.mean([center_depth, cut_depths[i], cut_depths[(i + 1) % n]])
+                    inside_vol += tri_area * tri_depth
+
+                if sec_type == "Full":
+                    if avg_cut_depth > 4:
+                        slope_h = avg_cut_depth - 4
+                        top_coords = offset_polygon(coords, slope_h)
+                        if top_coords and len(top_coords) == n:
+                            top_area = 0.0
+                            m = len(top_coords)
+                            for j in range(m):
+                                x1, y1 = top_coords[j]
+                                x2, y2 = top_coords[(j + 1) % m]
+                                top_area += x1 * y2 - x2 * y1
+                            top_area = abs(top_area) / 2.0
+                            vertical_vol = area * 4
+                            sloped_vol = slope_h * (area + top_area + math.sqrt(area * top_area)) / 3
+                            inside_vol = vertical_vol + sloped_vol
+                            sec_sloped_extra += sloped_vol - (area * slope_h)
+                        else:
+                            print("Debug: Offset polygon failed for sloped calc.")
+                    sec_inside_vol += inside_vol
+                    sec_fill += area * avg_fill_depth
+                else:
+                    sec_inside_vol += area * topsoil_depth
+
+                sec_vol = sec_trench_vol + sec_inside_vol
+
+                elev_steps = []
+                for i in range(n):
+                    next_i = (i + 1) % n
+                    delta = corner_targets[next_i] - corner_targets[i]
+                    if abs(delta) > 0.1:
+                        elev_steps.append((sec['corners'][i]['id'], delta))
+                total_steps = len(elev_steps)
+
+                elbow_90 = effective_walls
+                custom_elbows = 0
+                effective_wall_entries = [we for we in wall_entries if float(we['length'].get() or 0) > 0]
+                for i in range(len(effective_wall_entries)):
+                    dir1 = float(effective_wall_entries[i]['dir'].get() or 0)
+                    dir2 = float(effective_wall_entries[(i + 1) % len(effective_wall_entries)]['dir'].get() or 0)
+                    angle_diff = min(abs(dir2 - dir1) % 360, 360 - abs(dir2 - dir1) % 360)
+                    if not 85 < angle_diff < 95:
+                        custom_elbows += 1
+                        elbow_90 -= 1
+
+                if not light:
+                    tk.Label(results_frame, text=f"{name} (Type: {sec_type}, Int Depth: {int_target_depth:.1f} ft, Slope Var: {slope_var:.1f} ft):").pack(anchor="w")
+                    tk.Label(results_frame, text=f"  Wall Length: {sec_length:.1f} ft").pack(anchor="w")
+                    tk.Label(results_frame, text=f"  Trench Vol: {sec_trench_vol / 27:.1f} cu yd").pack(anchor="w")
+                    tk.Label(results_frame, text=f"  Inside Vol: {sec_inside_vol / 27:.1f} cu yd").pack(anchor="w")
+                    if sec_sloped_extra > 0:
+                        tk.Label(results_frame, text=f"  Sloped Extra: {sec_sloped_extra / 27:.1f} cu yd", fg="blue").pack(anchor="w")
+                    if sec_fill > 0:
+                        tk.Label(results_frame, text=f"  Fill Needed: {sec_fill / 27:.1f} cu yd", fg="red").pack(anchor="w")
+                    tk.Label(results_frame, text=f"  Section Total: {sec_vol / 27:.1f} cu yd").pack(anchor="w")
+                    tk.Label(results_frame, text=f"  Corners: {', '.join(c['id'] for c in sec['corners'][:n])}").pack(anchor="w")
+                    if elev_steps:
+                        tk.Label(results_frame, text=f"  Elev Steps: {total_steps} (e.g., {elev_steps[0][0]}: {elev_steps[0][1]:.1f} ft)").pack(anchor="w")
+                    tk.Label(results_frame, text=f"  Perimeter Drain: {elbow_90} x 90° elbows, {custom_elbows} custom").pack(anchor="w")
+
+                total_vol += sec_vol
+                total_sloped_extra += sec_sloped_extra
+                total_fill += sec_fill
+                total_length += sec_length
+                avg_buried_h += sum(buried_hs)
+                num_walls += len(buried_hs)
+
+            avg_buried_h = avg_buried_h / num_walls if num_walls > 0 else 0
+
+            if not light:
+                tk.Label(results_frame, text="Overall Totals:", font=("Arial", 10, "bold")).pack(anchor="w")
+                tk.Label(results_frame, text=f"Total Wall Length: {total_length:.1f} ft").pack(anchor="w")
+                tk.Label(results_frame, text=f"Avg Buried Height: {avg_buried_h:.2f} ft").pack(anchor="w")
+                if total_sloped_extra > 0:
+                    tk.Label(results_frame, text=f"Total Sloped Extra: {total_sloped_extra / 27:.1f} cu yd", fg="blue").pack(anchor="w")
+                tk.Label(results_frame, text=f"Total Excavation: {total_vol / 27:.1f} cu yd", font=("Arial", 10, "bold")).pack(anchor="w")
+                if total_fill > 0:
+                    tk.Label(results_frame, text=f"Total Fill Needed: {total_fill / 27:.1f} cu yd", fg="red").pack(anchor="w")
+
+                # Always add the button (even if no valid data)
+                plot_btn = tk.Button(results_frame, text="View Diagrams (Elevations)", command=open_diagram_viewer, bg="purple", fg="white")
+                plot_btn.pack(pady=5)
+
+                if not has_valid_section:
+                    tk.Label(results_frame, text="Debug: Add >=3 walls to a section and Calculate to enable full diagrams.", fg="gray").pack(anchor="w")
+
+            worksheet_window.total_vol = total_vol / 27.0
+
+            print("Debug: Results updated successfully.")
+
+        except ValueError as ve:
+            if not light:
+                messagebox.showerror("Calc Error", f"Invalid input: {str(ve)}")
+            print(f"Debug: ValueError in update_results: {ve}")
+        except Exception as e:
+            if not light:
+                messagebox.showerror("Calc Error", f"Error: {str(e)}")
+            print(f"Debug: Exception in update_results: {e}")
+        finally:
+            update_scroll_region()  # Ensure scroll updates after results change
+
+    def open_diagram_viewer():
+        """Gathers worksheet data and opens the 2D window."""
+        # 1. Create the popup window
+        diag_window = tk.Toplevel(worksheet_window)
+        diag_window.title("Foundation Elevations & Site Map")
+        
+        # 2. Create the Canvas (This is where the drawing happens)
+        diag_canvas = tk.Canvas(diag_window, width=800, height=400, bg='white')  # Renamed to avoid conflict
+        diag_canvas.pack(padx=20, pady=20)
+
+        # 3. Gather data from sections (aggregate averages and coords for each section)
+        sections_data = []
+        try:
+            over_out = float(over_out_entry.get() or 5.5)  # Use global over-ex for buffer
+            for sec in sections:
+                wall_entries = sec['wall_entries']
+                effective_wall_entries = [we for we in wall_entries if float(we['length'].get() or 0) > 0]
+                if len(effective_wall_entries) < 3:
+                    continue  # Skip invalid sections
+
+                # Re-calculate coords (similar to update_results)
+                coords = []
+                current_x, current_y = 0.0, 0.0
+                coords.append((current_x, current_y))  # Starting corner
+                heights = []
+                footing_depths = []
+                lengths = []
+                for we in effective_wall_entries:
+                    length = float(we['length'].get() or 0)
+                    direction = float(we['dir'].get() or 0)
+                    tow = float(we['tow'].get() or 100)
+                    bow = float(we['bow'].get() or 100)
+                    bof = float(we['bof'].get() or 100)
+                    rad = math.radians(direction)
+                    current_x += length * math.cos(rad)
+                    current_y += length * math.sin(rad)
+                    coords.append((current_x, current_y))
+                    heights.append(tow - bow)
+                    footing_depths.append(bow - bof)
+                    lengths.append(length)
+
+                # Close if needed (but assume calculated)
+                avg_h = statistics.mean(heights) if heights else 8
+                avg_f = statistics.mean(footing_depths) if footing_depths else 2
+                total_l = sum(lengths) if lengths else 10
+                # Approximate width as max projection in y (for rectangular approx)
+                min_y = min(y for x, y in coords)
+                max_y = max(y for x, y in coords)
+                approx_w = max_y - min_y if max_y > min_y else 10
+
+                sections_data.append({
+                    'height': avg_h,
+                    'length': total_l,
+                    'width': approx_w,
+                    'footing_depth': avg_f,
+                    'coords': coords,  # For top view polygon
+                    'name': sec['name_entry'].get()
+                })
+        except ValueError:
+            messagebox.showwarning("Input Error", "Please enter valid numbers in the worksheet first.")
+            diag_window.destroy()
+            return
+
+        if not sections_data:
+            messagebox.showwarning("No Data", "No valid sections with data to draw. Add and calculate sections first.")
+            diag_window.destroy()
+            return
+
+        # 4. Call generate_plots with the canvas and data
+        generate_plots(diag_canvas, sections_data, over_out)
+
+    def generate_plots(canvas, sections, over_out):
+        """Draws the side views and aerial map onto the canvas."""
+        canvas.delete("all")  # Clear any old drawings
+        
+        scale = 1  # Pixels per foot; adjust for zoom (small since coords can be large)
+        x_offset = 20  # Starting offset
+        y_offset = 20
+        
+        for idx, section in enumerate(sections):
+            h = section['height']
+            l = section['length']
+            w = section['width']
+            f = section['footing_depth']
+            coords = section['coords']
+            name = section['name']
+
+            # Shift for each section (vertical stacking for multiples)
+            current_y_offset = y_offset + idx * 200  # Space out if multiple
+
+            # --- Aerial Site Map (Top View with Polygon) ---
+            # Find min/max for normalization
+            if not coords:
+                continue
+            min_x = min(x for x, y in coords)
+            min_y = min(y for x, y in coords)
+            norm_coords = [( (x - min_x) * scale, (y - min_y) * scale ) for x, y in coords]
+
+            # Draw foundation polygon with black outline
+            canvas.create_polygon(norm_coords, outline='black', fill='lightgray', width=2)
+            canvas.create_text(x_offset, current_y_offset - 10, text=f"Aerial Site Plan - {name}", font=("Arial", 10))
+
+            # Draw overdig buffer (red dashed)
+            buffer_dist = over_out
+            offset_coords = offset_polygon([(x/scale + min_x, y/scale + min_y) for x, y in norm_coords], buffer_dist)  # Denormalize for offset
+            if offset_coords:
+                norm_offset = [( (x - min_x) * scale, (y - min_y) * scale ) for x, y in offset_coords]
+                canvas.create_polygon(norm_offset, outline='red', dash=(4,4), fill='', width=2)
+
+            # Shift x_offset for next views
+            view_width = max(x for x, y in norm_coords) + 50
+            x_offset += view_width + 20
+
+            # --- Front Elevation (Simplified using total length and avg height) ---
+            base_y = current_y_offset + 150
+            canvas.create_rectangle(x_offset, base_y - (h * scale), x_offset + (l * scale), base_y, outline="black", fill="gray")
+            canvas.create_rectangle(x_offset, base_y, x_offset + (l * scale), base_y + (f * scale), outline="black", fill="darkgray")
+            canvas.create_text(x_offset + (l * scale)/2, base_y + (f * scale) + 20, text=f"Front Elevation - {name}")
+
+            # Shift
+            x_offset += (l * scale) + 50
+
+            # --- Side Elevation (Using approx width and avg height) ---
+            canvas.create_rectangle(x_offset, base_y - (h * scale), x_offset + (w * scale), base_y, outline="black", fill="gray")
+            canvas.create_rectangle(x_offset, base_y, x_offset + (w * scale), base_y + (f * scale), outline="black", fill="darkgray")
+            canvas.create_text(x_offset + (w * scale)/2, base_y + (f * scale) + 20, text=f"Side Elevation - {name}")
+
+            # Reset x_offset for next section
+            x_offset = 20
+
+        # Make canvas scrollable if content exceeds
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    print("Debug: Creating button frame...")
+    btn_frame = tk.Frame(ws_frame)
+    btn_frame.pack(fill="x", pady=10)
+    print("Debug: Button frame packed.")
+
+    tk.Button(btn_frame, text="Calculate All", command=update_results, bg="lightblue").pack(side="left", padx=5)
+    print("Debug: Calculate All button added.")
+
+    def save_and_apply():
+        # Gather data to save
+        save_data = {
+            'globals': {
+                'over_in': over_in_entry.get(),
+                'over_out': over_out_entry.get(),
+                'topsoil': topsoil_entry.get(),
+                'autoclose': autoclose_var.get()
+            },
+            'sections': []
+        }
+        for sec in sections:
+            sec_data = {
+                'name': sec['name_entry'].get(),
+                'type': sec['type_var'].get(),
+                'tos': sec['tos_entry'].get(),
+                'int_depth': sec['int_depth_entry'].get(),
+                'notes': sec['notes'].get("1.0", tk.END).strip(),
+                'walls': []
+            }
+            for we in sec['wall_entries']:
+                wall_data = {
+                    'length': we['length'].get(),
+                    'dir': we['dir'].get(),
+                    'tow': we['tow'].get(),
+                    'bow': we['bow'].get(),
+                    'bof': we['bof'].get(),
+                    'footer': we['footer'].get(),
+                    'corner': we['corner'].get()
+                }
+                sec_data['walls'].append(wall_data)
+            save_data['sections'].append(sec_data)
+
+        try:
+            with open(load_file, 'w') as f:
+                json.dump(save_data, f, indent=4)
+            print(f"Debug: Data saved to {load_file}")
+        except Exception as e:
+            print(f"Debug: Error saving data: {e}")
+            messagebox.showerror("Save Error", f"Could not save data: {str(e)}")
+
+        if hasattr(worksheet_window, 'total_vol'):
+            main_entry.delete(0, tk.END)
+            main_entry.insert(0, f"{worksheet_window.total_vol:.1f}")
+            messagebox.showinfo("Applied", f"Foundation volume set to {worksheet_window.total_vol:.1f} cu yd")
+        worksheet_window.destroy()
+
+    tk.Button(btn_frame, text="Save & Apply", command=save_and_apply, bg="green", fg="white", font=("Arial", 12, "bold")).pack(side="right", padx=5)
+    print("Debug: Save & Apply button added.")
+
+    tk.Button(btn_frame, text="Cancel", command=worksheet_window.destroy, bg="red", fg="white").pack(side="right", padx=5)
+    print("Debug: Cancel button added.")
+
+    # Force an initial update to ensure everything renders
+    worksheet_window.after(100, update_scroll_region)
+    print("Debug: Worksheet setup complete. If buttons/results not visible, check for errors above.")
+
+# Standalone Main for Testing
+if __name__ == "__main__":
+    print("Debug: Starting main app...")
+    root = tk.Tk()
+    root.title("Foundation Worksheet Test")
+    root.geometry("400x200")
+
+    test_frame = tk.Frame(root)
+    test_frame.pack(pady=20)
+
+    tk.Label(test_frame, text="Estimate ID:").pack(side="left", padx=5)
+    estimate_id_entry = tk.Entry(test_frame, width=15)
+    estimate_id_entry.insert(0, "123")  # Default for testing
+    estimate_id_entry.pack(side="left", padx=5)
+
+    tk.Label(test_frame, text="Foundation excavation (cu yd):").pack(side="left", padx=5)
+    main_entry = tk.Entry(test_frame, width=15)
+    main_entry.pack(side="left", padx=5)
+
+    tk.Button(root, text="Open/Edit Worksheet", command=lambda: open_foundation_worksheet(main_entry, estimate_id=estimate_id_entry.get()), bg="blue", fg="white").pack(pady=10)
+
+    root.mainloop()
