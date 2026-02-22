@@ -1,0 +1,146 @@
+<ReceiptLayout>:
+    canvas.before:
+        Color:
+            rgba: 0.15, 0.25, 0.35, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    orientation: 'vertical'
+    padding: 40
+    spacing: 20
+
+    Label:
+        text: "Enter Receipt Deets, Bradley!"
+        font_size: 32
+        color: 0.9, 0.95, 1, 1
+        bold: True
+        size_hint_y: None
+        height: 80
+
+    FloatLayout:
+        size_hint_y: None
+        height: 60
+
+        canvas.before:
+            Color:
+                rgba: 0.7, 0.98, 0.98, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [22, 22, 22, 22]
+
+        TextInput:
+            id: purchase_location
+            hint_text: "Where was the purchase?"
+            multiline: False
+            background_color: 0, 0, 0, 0   # fully transparent
+            foreground_color: 0, 0, 0, 1
+            hint_text_color: 0.65, 0.65, 0.65, 1
+            padding: [20, 20, 20, 20]
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            size_hint: 0.9, 0.9
+
+    FloatLayout:
+        size_hint_y: None
+        height: 60
+
+        canvas.before:
+            Color:
+                rgba: 0.68, 0.98, 0.98, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [22, 22, 22, 22]
+
+        TextInput:
+            id: purchase_amount
+            hint_text: "How much? Dollar amount."
+            multiline: False
+            background_color: 0, 0, 0, 0
+            foreground_color: 0, 0, 0, 1
+            hint_text_color: 0.65, 0.65, 0.65, 1
+            padding: [20, 20, 20, 20]
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            size_hint: 0.9, 0.9
+
+    FloatLayout:
+        size_hint_y: None
+        height: 60
+
+        canvas.before:
+            Color:
+                rgba: 0.66, 0.98, 0.98, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [22, 22, 22, 22]
+
+        TextInput:
+            id: for_input
+            hint_text: "What was the purchase for?"
+            multiline: False
+            background_color: 0, 0, 0, 0
+            foreground_color: 0, 0, 0, 1
+            hint_text_color: 0.65, 0.65, 0.65, 1
+            padding: [20, 20, 20, 20]
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            size_hint: 0.9, 0.9
+
+    FloatLayout:
+        size_hint_y: None
+        height: 60
+
+        canvas.before:
+            Color:
+                rgba: 0.64, 0.98, 0.98, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [22, 22, 22, 22]
+
+        TextInput:
+            id: project_input
+            hint_text: "Project Name/Number."
+            multiline: False
+            background_color: 0, 0, 0, 0
+            foreground_color: 0, 0, 0, 1
+            hint_text_color: 0.65, 0.65, 0.65, 1
+            padding: [20, 20, 20, 20]
+            pos_hint: {'center_x': .5, 'center_y': .5}
+            size_hint: 0.9, 0.9
+
+    # New Snap button
+    Button:
+        text: "Snap Receipt Photo"
+        size_hint_y: None
+        height: 70
+        font_size: 30
+        bold: True
+        background_color: 0.4, 0.4, 0.8, 0
+        canvas.before:
+            Color:
+                rgba: 0.7, 0.13, 0.13, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [22, 22, 22, 22]
+        on_press: root.open_camera()
+
+
+    Button:
+        text: "Submit Receipt"
+        size_hint_y: None
+        height: 70
+        font_size: 30
+        bold: True
+        background_color: 0.0, 1.0, 0.5, 0
+        canvas.before:
+            Color:
+                rgba: 0.0, 1.0, 0.5, 1.0
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [22, 22, 22, 22]
+        on_press: root.submit_receipt()
+
